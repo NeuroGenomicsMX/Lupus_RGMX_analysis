@@ -1,0 +1,205 @@
+---
+title: "QoL group-comparative by domain"
+author: "Domingo Martínez"
+date: "2023-01-31"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Description.
+
+In this script we will explore the dataset created in the script "04_Integrate_all_three_datasets.Rmd" to try to answer the following question:
+
+*The quality of life domains in SLE patients are different from other groups?*
+
+We will compare them to volunters from RedCap Lupus RGMX, regarding environmental quality of life domain.
+
+In this analysis we will take into consideration the variables listed following:
+
+- Lupus: 1 indicates a participant diagnosed with LES.
+         2 indicates a participant NON-diagnosed with LES.  
+         
+- Female: 1 indicates female participant.
+          0 indicates male participant.
+
+- Male: 1 indicates male participant.
+        0 indicates female participant.
+
+- Calculated Age: age calculated automatically based on birthday.
+
+- Quality of life perception: quality of life perception, how would you rate your QoL?
+
+- Health perception: healt perception, how satisfied are you with your health?
+
+- Physical health QoL-domain:  physical domain of quality of life (QoL).
+
+- Psychologial QoL-domain: psychological domain of QoL.
+
+- Social relations QoL-domain: social domain of QoL.
+
+- Environmental QoL-domain: environmental domain od QoL.
+
+- Total quality of life: aggregated quality of life, a score greater than 40 indicates a high quality of life.
+
+- Group: indicates what group partipants belong to.
+         SLEpatiens, patiens from the LupusRGMX registry.
+         RedCap volunter, healthy controls from the LupusRGMX registry.
+         Twins volunter, only one twin from TwinsMX registry,
+
+## STEP 2: Reading data set and removing atypicalls
+```{r Reading dataset}
+library(tidyverse)
+integrated.database<-read_csv("DATA_2023-01-05_completas/base.de.datos.integrada.csv")
+str(integrated.database)
+```
+We detected that some participants had atypical ages, for now we will removed from the analysis, *maybe in the future we can fix that ages*. But now, we will filter ages from 18 to 100 years.
+
+```{r Removing atypicalls ages}
+integrated.database<-integrated.database %>%
+  filter(`Calculated Age` >= 18 & `Calculated Age` <=100) %>%
+  select( -`...1` ) # Eliminating first column
+```
+
+Now, we will take off that uncompleted registries.
+```{r Removing registries with NAs}
+integrated.database<-na.omit(integrated.database)
+```
+After cleaning, we kept 1578 registries.
+
+## STEP 3: Formating variables
+```{r Formating  variables}
+str(integrated.database)
+## Formating variables
+integrated.database<-integrated.database %>%
+  mutate(Lupus = as_factor(Lupus),
+         Female = as_factor(Female),
+         Male = as_factor(Male),
+         Group = as_factor(Group))
+## Reordering factors
+integrated.database$Female<-integrated.database$Female %>%
+  recode_factor("1" = "1", "0" = "0")
+integrated.database$Male<-integrated.database$Male %>%
+  recode_factor("1" = "1", "0" = "0")
+str(integrated.database)
+levels(integrated.database$Group)
+```
+
+```{r visualazing pair-plots}
+library(GGally)
+#ggpairs(integrated.database, aes(colour=Group, alpha=0.75))
+#ggsave("pair.plot.base.de.datos.integrada.sin.NAs.png", plot = last_plot(), width = 60, height = 55, units = c("cm"), device = png, dpi = 300)
+```
+
+## STEP 4: Permutation test to find differences among groups by QoL dimension
+
+After pairing age and sex proportion, we will apply permutation test, by random resampling method, to find out if there any differences in the quality of life (QoL) domains between SLEpatiens and two comparative groups, namely, RedCapvolunter and Twinsvolunter. Both comparative groups responded the same questioners that SLEpatiend responded, both of them are healthy subjects. 
+
+```{r Checking proportion of males and females in SLEpatients group}
+counting.female.males.SLEpatients<-integrated.database %>%
+  filter(Group == "SLEpatients") %>%
+  select(Female, Male) %>%
+  table() %>%
+  as.data.frame()
+counting.female.males.SLEpatients$Female
+proporcion.females <- (counting.female.males.SLEpatients[3,3])/(sum(counting.female.males.SLEpatients$Freq))
+proporcion.females
+```
+
+We will take a proportion of 9 women by 1 men.
+
+```{r Checking how many subjects are in each group}
+table(integrated.database[,12])
+```
+
+Since our smallest group had 128 subject, we will take sample of 90 women and 10 men. It will be with replacement because of the imbalance between groups and sex.
+
+### Environmental QoL-domain permutation Test SLE vs Twins
+
+```{r Perm test by resampling}
+# Creating database to save re-sampling results
+resultados.remuestreo.environmental <- 
+  tibble(pvalor = numeric(), diferencia = numeric())
+library(perm)
+for (i in 1:200) {
+    set.seed(NULL) # No pongo semilla
+    # Separo mi grupo de controles mujeres
+    subconjunto.controles.mujeres <- integrated.database %>%
+          filter(Group == "TwinVolunter" &
+                 Female == "1")
+    # Separo mi grupo de controles hombres
+    subconjunto.controles.hombres <- integrated.database %>%
+          filter(Group == "TwinVolunter" &
+                 Male == "1")
+    # Selecciona 90 controles mujeres al azars
+    muestra.controles.mujeres <- slice_sample(subconjunto.controles.mujeres, n=90, replace = T)
+    # Selecciono 10 controles hombre al azar
+    muestra.controles.hombres <- slice_sample(subconjunto.controles.hombres, n=30, replace = T)
+    # Junto ambas submuestras
+    muestra.controles<-rbind(muestra.controles.mujeres, muestra.controles.hombres)
+    # Obtengo el histograma de la Edad de la muestra de controles
+    histograma.muestra.controles <- hist(muestra.controles$`Calculated Age`)
+    # Veo cuántas clases asigno
+    clases <- histograma.muestra.controles[["breaks"]]
+    # Veo cuantos elementos tengo en cada clase
+    conteo.por.clase <- histograma.muestra.controles[["counts"]]
+  
+## Ahora obtengo una muestra aleatoria de pacientes con las características de edad de la muestra de controles.  
+
+    # Vemos cuánto cortes tenemos
+    cortes<-n_distinct(histograma.muestra.controles$breaks)
+    cortes
+    clases <- cortes -1 
+    clases
+    set.seed(NULL) # No pongo semilla
+    # Separo mi grupo de pacientes
+    subconjunto.pacientes <- integrated.database %>%
+          filter(Group == "SLEpatients") 
+    
+    # Declaro un dataframe en el que se guardarán mis resultados. 
+    muestra.pacientes <-tibble("Lupus" = factor(),
+                               "Female" = factor(),
+                               "Male" = factor(),
+                               "Calculated Age" = numeric(),
+                               "Quality of life perception" = numeric(),
+                               "Health perception" = numeric(),
+                               "Environmental QoL-domain" = numeric(),
+                               "Physical health QoL-domain" = numeric(),
+                               "Psychologial QoL-domain" = numeric(),
+                               "Social relations QoL-domain" = numeric(),
+                               "Total quality of life" = numeric(),
+                               "Group" = numeric()
+                               )
+    # Obtengo n re-muestras aleatorias de pacientes dentro de los límites de cada clase del grupo control.
+    
+    for (i in 1:clases) {
+      submuestra.i <- subconjunto.pacientes %>%
+      filter(`Calculated Age` >= histograma.muestra.controles$breaks[i] &
+             `Calculated Age` <= histograma.muestra.controles$breaks[i+1])
+      set.seed(NULL)
+      if (histograma.muestra.controles$counts[i]>0) {
+        muestra.pacientes.i  <- slice_sample(submuestra.i, n = histograma.muestra.controles$counts[i], replace = T)
+        
+      muestra.pacientes <- rbind(muestra.pacientes, muestra.pacientes.i)
+      }
+      
+    }
+
+    # Ahora comparo la variable de interés de ambas muestras
+    resultados.perm.test.calidad.vida<-permTS(muestra.controles$`Environmental QoL-domain`,
+                                      muestra.pacientes$`Environmental QoL-domain`,
+                                      alternative = "greater")
+    # Guardamos los resultados de este remuestro en una dataframe (tibble)
+    resultados.remuestreo.i <- tibble(
+      pvalor = resultados.perm.test.calidad.vida[["p.value"]],
+      diferencia = resultados.perm.test.calidad.vida[["estimate"]])
+    # Juntamos estos resultados en la dataframe (tibble) original, y planchamos la variable.
+    resultados.remuestreo.environmental<- rbind(resultados.remuestreo.environmental, resultados.remuestreo.i)
+     
+}
+# Exportamos resultados
+write.csv(resultados.remuestreo.environmental, "Resultados_permutation_test_by_resampling/resultados.remuestreo.PermTest.environmental_Twins.csv")
+```
+

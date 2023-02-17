@@ -1,0 +1,50 @@
+---
+title: "14 Summary Statistics"
+author: "Domingo Martínez"
+date: "2023-02-15"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this script we retrieve the final data set used to the analysis, in order to summarize age and other variables of the groups.
+
+```{r Reading database}
+library(tidyverse)
+base.completa<-read_csv("DATA_2023-01-05_completas/base.de.datos.integrada.csv")
+```
+```{r Summarizing n}
+base.completa %>%
+  table
+
+addmargins(table(base.completa$Group,
+                 base.completa$Female))
+```
+```{r Summariazing RedCap Ages}
+RedCapVounterAges<-base.completa %>%
+  filter(Group == "RedCapVolunter") %>%
+  select(`Calculated Age`)%>%
+  na.omit()
+round(mean(RedCapVounterAges$`Calculated Age`), digits = 2)
+round(sd(RedCapVounterAges$`Calculated Age`), digits = 2)
+```
+
+```{r Summariazing Twins Ages}
+TwinVounterAges<-base.completa %>%
+  filter(Group == "TwinVolunter") %>%
+  select(`Calculated Age`)%>%
+  na.omit()
+round(mean(TwinVounterAges$`Calculated Age`), digits = 2)
+round(sd(TwinVounterAges$`Calculated Age`), digits = 2)
+```
+
+```{r Summariazing SLE Ages}
+SLEPatientsAges<-base.completa %>%
+  filter(Group == "SLEpatients") %>%
+  select(`Calculated Age`)%>%
+  na.omit()
+round(mean(SLEPatientsAges$`Calculated Age`), digits = 2)
+round(sd(SLEPatientsAges$`Calculated Age`), digits = 2)
+```

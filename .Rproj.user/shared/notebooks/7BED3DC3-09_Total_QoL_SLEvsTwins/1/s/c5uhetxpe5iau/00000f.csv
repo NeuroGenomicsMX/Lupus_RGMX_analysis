@@ -1,0 +1,3 @@
+"0","library(GGally)"
+"0","#ggpairs(integrated.database, aes(colour=Group, alpha=0.75))"
+"0","#ggsave(""pair.plot.base.de.datos.integrada.sin.NAs.png"", plot = last_plot(), width = 60, height = 55, units = c(""cm""), device = png, dpi = 300)"

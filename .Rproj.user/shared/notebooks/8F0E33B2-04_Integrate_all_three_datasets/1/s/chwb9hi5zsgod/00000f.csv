@@ -1,0 +1,4 @@
+"0","write.csv(b.completo, ""DATA_2023-01-05_completas/base.de.datos.integrada.csv"")
+"
+"2","Error in is.data.frame(x) : objeto 'b.completo' no encontrado
+"

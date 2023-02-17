@@ -1,0 +1,56 @@
+"0","# Helper packages"
+"0","library(dplyr)     # for data wrangling"
+"0","library(ggplot2)   # for awesome plotting"
+"0",""
+"0","# Modeling packages"
+"0","library(earth)     # for fitting MARS models"
+"2","Loading required package: Formula
+"
+"2","Loading required package: plotmo
+"
+"2","Loading required package: plotrix
+"
+"2","Loading required package: TeachingDemos
+"
+"0","library(caret)     # for automating the tuning process"
+"0",""
+"0","# Model interpretability packages"
+"0","library(vip)       # for variable importance"
+"2","
+Attaching package: ‘vip’
+
+"
+"2","The following object is masked from ‘package:utils’:
+
+    vi
+
+"
+"0","library(pdp)       # for variable relationships"
+"2","
+Attaching package: ‘pdp’
+
+"
+"2","The following object is masked from ‘package:purrr’:
+
+    partial
+
+"
+"0","# create a tuning grid"
+"0","hyper_grid <- expand.grid("
+"0","  degree = 1:3, "
+"0","  nprune = seq(2, 100, length.out = 5) %>% floor()"
+"0",")"
+"0",""
+"0","# cross validated model"
+"0","set.seed(NULL)"
+"0","cv_mars <- train("
+"0","  x = subset(tb.pacientes, select = -`Total quality of life`),"
+"0","  y = tb.pacientes$`Total quality of life`,"
+"0","  method = ""earth"","
+"0","  metric = ""RMSE"","
+"0","  trControl = trainControl(method = ""cv"", number = 15),"
+"0","  tuneGrid = hyper_grid"
+"0",")"
+"0",""
+"0","# View results"
+"0","cv_mars$bestTune"

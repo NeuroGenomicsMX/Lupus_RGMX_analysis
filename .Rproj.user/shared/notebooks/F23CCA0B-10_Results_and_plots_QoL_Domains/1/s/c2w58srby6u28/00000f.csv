@@ -1,0 +1,4 @@
+"0","ruta.archivos <- "
+"0","archivos.resultados<-list.files(path = ""Resultados_permutation_test_by_resampling"", full.names = T)"
+"0","lista.resultados <- lapply(archivos.resultados, read.csv)"
+"0","nombres.archivos <- list.files(path = ""Resultados_permutation_test_by_resampling"", full.names = F)"

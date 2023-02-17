@@ -1,0 +1,7 @@
+"0","partial.bref2 <- partial(cv_glmnet, pred.var = c(""bref2""), chull = T)
+"
+"1","[1m[33mError[39m in `partial()`:[22m
+[38;5;255m[33m![38;5;255m `.f` must be a function, not a [34m<train>[38;5;255m object.[39m
+Backtrace:
+[90m 1. [39m[1m[94mpurrr::partial([39m[22m[1m[95m.f = cv_glmnet[39m[22m[1m[94m)[39m[22m
+"

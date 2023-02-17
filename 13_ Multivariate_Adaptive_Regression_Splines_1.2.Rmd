@@ -1,0 +1,688 @@
+---
+title: "Multivariate Adaptive Regression Splines Model"
+author: "Domingo Martínez"
+date: "2023-02-10"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this script we will apply a Multivariate Adaptive Regression Splines model to find out what variables are the more influential to explain the total quality of life in SLE patients.
+
+**The response variable:**
+
+- cal_totalcv: aggregated quality of life, a score greater than 40 indicates a high quality of life.
+
+**The predictive variables are:**
+
+- bref1: quality of life perception, how would you rate your QoL?
+
+- bref2: healt perception, how satisfied are you with your health?
+
+- socioeconomic_status: aggregate economic level/status.
+
+- calculated_age: age calculated automatically based on birthday.
+
+- sex: 1 or sex___1 indicates female participant.
+       2 or sex___2 indicates male participant.
+       
+- dx_time: auto reported, how long from the first SLE diagnostic.
+
+- prednisolona: indicate if participant takes corticosteroids, specifically:
+
+0	Prednisona, converted to prednisolona.0
+1	Prednisolona, converted to prednisolona.1 
+2	Deflazacort, converted to prednisolona.2
+3	Meticorten, converted to prednisolona.3
+4	Metilprednisolona, converted to prednisolona.4
+5	Calcort, converted to prednisolona.5
+6	Betametazona, converted to prednisolona.6
+7	No, converted to prednisolona.7
+8	Other, converted to prednisolona.8
+
+- treatment: indicates what medications patient takes on a regular basis to treat SLE. Among different labels we have:
+
+0	treatment___0	Antimaláricos (Hidroxicloroquina, cloroquina, plaquenil)
+1	treatment___1	Corticoesteroides (Prednisona, prednisolona, deflazacort, meticorten, metilprednisolona, calcort, betametazona)
+2	treatment___2	Ácido micofenólico (Micofenolato, cellcept, mofetil)
+3	treatment___3	Azatioprina (imuran, azatrilem)
+4	treatment___4	Metotrexato (Ledertrexate)
+5	treatment___5	Rituximab
+6	treatment___6	Ciclosporina
+7	treatment___7	Ciclofosfamida
+8	treatment___8	Otros
+
+- Comorbidity: indicates co-ocurring clinical conditions in SLE patients. Among different labels we found:
+
+1	Diabetes mellitus
+2	Hipertensión
+3	Cáncer
+4	Enfermedad cardiovascular
+5	Osteoporosis
+6	Artritis reumatoide
+7	Esclerosis múltiple
+8	Problemas de tiroides
+9	Otra
+11	Ninguna
+
+- health_provider: indicates current medical services provider. We have next options:
+
+1	Instituto Mexicano del Seguro Social (IMSS)
+2	Instituto de Seguridad y Servicios Sociales de los Trabajadores del Estado (ISSSTE)
+3	Petróleos Mexicanos (PEMEX)
+4	Secretaría de la Defensa (SEDENA)
+5	Secretaría de Marina (SEMAR)
+6	Secretaría de Salud (SSa)
+7	Servicios Estatales de Salud (SESA)
+8	IMSS-Bienestar (sin seguridad social)
+9	Privado
+
+- time_symptoms: indicates the time lapse between first symptom and the official clinical diagnostic.
+
+0	menos de seis
+1	entre 6 meses y un año
+2	un año
+3	dos años,
+4	tres años
+5	cuatro años
+6	más de 5 años
+7	más de 10 años
+
+
+## STEP 1: Readind database
+```{r Reading database}
+library(tidyverse)
+tb.pacientes <- read_csv("Curating_RedCap_database/DATA_2023-01-05_0147_Complete_db_patients_under_SLE_medication_5.csv")
+```
+
+## STEP 2: Selecting and formating variables
+```{r Picking variables of interest, include = FALSE}
+library(tidyverse)
+tb.pacientes<-tb.pacientes %>%
+  select(dx_time,
+         sex___1, sex___2,
+         calculated_age,
+         socioeconomic_status,
+         bref1,
+         bref2,
+         cal_totalcv, 
+         prednisolona,
+         treatment___0 ,
+         treatment___1 ,
+         treatment___2 ,
+         treatment___3 ,
+         treatment___4 ,
+         treatment___5 ,
+         treatment___6 ,
+         treatment___7 ,
+         treatment___8 ,
+         comorbidities ,
+         time_symptoms
+         )
+str(tb.pacientes) # check data structure
+sum(is.na(tb.pacientes)) # check NAs
+# We had 968 missing values
+library(naniar)
+# vis_miss(tb.pacientes) # Not a lot of missed data.
+
+# Convert "prednisolona" variable to factor
+tb.pacientes$prednisolona<-as_factor(tb.pacientes$prednisolona)
+# Let's convert prednisolona categorical variable to numerical by one-hot technique.
+library(caret)
+#define one-hot encoding function
+dummy <- tb.pacientes[,"prednisolona"]
+dummy <- dummyVars(" ~ .", data=dummy)
+
+# Perform one-hot encoding on data frame
+final_df <- data.frame(predict(dummy, newdata=tb.pacientes))
+tb.pacientes<-cbind(tb.pacientes, final_df)
+
+# Remove "prednisolona" original variable
+tb.pacientes<-select(tb.pacientes, -prednisolona)
+
+# Manipulating dx_time responses
+dx_time_respones <- unique(tb.pacientes$dx_time)
+dx_time_respones
+length(unique(dx_time_respones))
+# There are 182 different responses
+# We will transform values
+# We will transform values underlying next rules:
+# Since 6 months we will round to complete years.
+tb.pacientes$dx_time <-tb.pacientes$dx_time %>%
+  recode("07 meses" = "1",
+         "1 año 8 meses" = "2",
+         "2009" = "13",
+         "9 años" = "9",
+         "5 añod" = "5",
+         "6 años" = "6",
+         "1 año" = "1",
+         "23 AÑOS APROXIMADAMENTE" = "23",
+         "13 años" = "13",
+         "2 años" = "2",
+         "menos de 1" = "1",
+         "4 años y medio" = "5",
+         "13años" = "13",
+         "6 meses" = "1",
+         "Hace 6 meses. Pero dicen que desde hace 2 años lo tenía y no se dieron cuenta." = "2",
+         "12 años" = "12",
+         "3 años" = "3",
+         "34 años" = "34",
+         "5 meses" = "1",
+         "16 años" = "16",
+         "3 meses" = "1",
+         "4 años" = "4",
+         "17 años" = "17",
+         "4 meses" = "1",
+         "2.5" = "3",
+         "2003" = "19",
+         "5 años" = "5",
+         "27 años" = "27", 
+         "8 años" = "8",
+         "Uno" = "1",
+         "medio año" = "1",
+         "15 años" = "15",
+         "20 años" = "20",
+         "Hace 3 meses" = "1",
+         "2016" = "6",
+         "1año" = "1",
+         "Enero 2020" = "2",
+         "7 años" = "7",
+         "10 años" = "10",
+         "2014" = "8",
+         "22 años" = "22",
+         "11años" = "11",
+         "14 años" = "14",
+         "33 años" = "33",
+         "6 año" = "6",
+         "21 años"  = "21",
+         "3años" = "3",
+         "6años" = "6",
+         "1 año 6 meses" = "2",
+         "Hace 2 semanas" = "1",
+         "Un año" = "1",
+         "20 meses" = "2",
+         "Hace dos años" = "2",
+         "3 años aprox" = "3",
+         "2 años y 9 meses" = "3",
+         "2000-01-01" = "22",
+         "7 MESES" = "1",
+         "36 años" = "36",
+         "Medio año" = "1",
+         "A mis 6 años" = "14",
+         "24 años" = "24",
+         "Un año 5 meses" = "2",
+         "9años" = "9",
+         "38 años" = "38",
+         "23 años" = "23",
+         "13 AÑOS" = "13",
+         "6 años 9 meses" = "7",
+         "26 años" = "26",
+         "8/08/2018" = "4",
+         "2012" = "10",
+         "2 meses"  = "1",
+         "hace 2 años 5 meses" = "3",
+         "21 AÑOS" = "21",
+         "Tres años" = "3",
+         "DESDE FEBRERO DE 2005" = "17",
+         "4 años 9 meses" = "5",
+         "39 AÑOS, PRIMERO DISCOIDE Y DESPUÉS LUPUS ERITEMATOSO SISTÉMICO" = "39",
+         "A los 14 años" = "NA",
+         ".5" = "1",
+         "128" = "NA",
+         "17 días" = "1",
+         "39 años" = "39",
+         "2 años 2 meses" = "2",
+         "Siete meses" = "1",
+         "Menos de un año" = "1",
+         "17 AÑOS" = "17",
+         "Con Lupus un año 4 meses, porque anteriormente me dieron diagnostico equivocado" = "2",
+         "25 años"  = "25",
+         "7  años"  = "7",
+         "3.5" = "4",
+         "en el 2014" = "8",
+         "Dos años" = "2",
+         "año  y medo" = "2",
+         "02-10-2005" = "17",
+         "Hace más de 1 año en el 2020" = "2",
+         "28 años" = "28",
+         "8años" = "8",
+         "2 años." = "2",
+         "Julio 2017" = "6",
+         "1 año y medio" = "2",
+         "13 años  5 meses" = "13",
+         "Hace 6 meses" = "1",
+         "21 años y medio" = "22",
+         "15 años aproximadamente" = "15",
+         "1 año 3 meces" = "1",
+         "2.5 años" = "3",
+         "Hace 6 años" = "6",
+         "Hace 1 año" = "1",
+         "Hace 2 meses" = "1",
+         "Hace 26 años" = "26",
+         "Ayer" = "1",
+         "2018" = "4",
+         "7-8" = "8",
+         "Septiembre del 2008" = "14",
+         "7años" = "7",
+         "15años" = "15",
+         "5 años  8 meses" = "6",
+         "Casi 3 años" = "3",
+         "25 AÑOS" = "25",
+         "1.5" = "2",
+         "13 años 9 meses" = "14",
+         "Hace seis años" = "6",
+         "9 meses" = "1",
+         "29 años" = "29",
+         "1998" = "24",
+         "2019" = "3",
+         "El año pasado" = "1",
+         "7 meses" = "1",
+         "10 meses" = "1",
+         "2014- 7 años" = "7",
+         "hace 5 años" = "5",
+         "Dos" = "2",
+         "4años" = "4",
+         "Hace un año" = "1",
+         "1 año 4 meses" = "1",
+         "1.2" = "1",
+         "2015" = "7",
+         ".4" = "1",
+         "2007" = "15",
+         "11 años" = "11",
+         "19 años" = "19",
+         "18 años" = "18"
+         )
+unique(tb.pacientes$dx_time)
+tb.pacientes$dx_time <- as.numeric(tb.pacientes$dx_time)
+# hist(tb.pacientes$dx_time)
+rm(final_df, dummy, dx_time_respones)
+
+# After cleaning our data sate, we keept 964 cases.
+```
+
+
+```{r Readgin again to manover comorbidities}
+tb.pacientes2 <- read_csv("Curating_RedCap_database/DATA_2023-01-05_0147_Complete_db_patients_under_SLE_medication_5.csv")
+```
+
+```{r One-hot encoding comorbidities}
+# Convert "comorbidities" variable to factor
+tb.pacientes2$comorbidities<-as_factor(tb.pacientes2$comorbidities)
+# Let's convert comorbidities categorical variable to numerical by one-hot technique.
+library(caret)
+#define one-hot encoding function
+dummy <- tb.pacientes2[,"comorbidities"]
+dummy <- dummyVars(" ~ .", data = dummy)
+# Perform one-hot encoding on data frame
+final_df2 <- data.frame(predict(dummy, newdata = tb.pacientes2))
+
+# Binding both data sets
+tb.pacientes<-cbind(tb.pacientes, final_df2)
+
+# Remove "comorbidities" original variable
+tb.pacientes<-select(tb.pacientes, -comorbidities)
+
+# Remove no necessary objects
+rm(dummy, final_df2, tb.pacientes2)
+```
+
+
+```{r Readgin again and again to manover health provider}
+tb.pacientes3 <- read_csv("Curating_RedCap_database/DATA_2023-01-05_0147_Complete_db_patients_under_SLE_medication_5.csv")
+```
+
+
+```{r One-hot encoding health provider}
+# Convert "comorbidities" variable to factor
+tb.pacientes3$health_provider<-as_factor(tb.pacientes3$health_provider)
+# Let's convert comorbidities categorical variable to numerical by one-hot technique.
+library(caret)
+#define one-hot encoding function
+dummy <- tb.pacientes3[,"health_provider"]
+dummy <- dummyVars(" ~ .", data = dummy)
+# Perform one-hot encoding on data frame
+final_df3 <- data.frame(predict(dummy, newdata = tb.pacientes3))
+# Binding both data sets
+tb.pacientes<-cbind(tb.pacientes, final_df3)
+
+# Remove "comorbidities" original variable
+#tb.pacientes<-select(tb.pacientes, -`health_provider`)
+
+# Remove no necessary objects
+rm(dummy, final_df3, tb.pacientes3)
+```
+
+## STEP 3: Rename variables
+```{r Renaming variables}
+library(dplyr)
+tb.pacientes <- tb.pacientes %>%
+  rename("Total quality of life" = cal_totalcv,
+         "Female" = sex___1,
+         "Male" = sex___2,
+         "Calculated Age" = calculated_age,
+         "Quality of life perception" = bref1,
+         "Health perception" = bref2,
+         "Total quality of life" = cal_totalcv,
+         "Socioeconomic status" = socioeconomic_status,
+         "Years living with SLE" = dx_time,
+         "Antimalarial" = treatment___0,
+         "Corticosteroid" = treatment___1,
+         "Mycophenolic acid" = treatment___2,
+         "Azathioprine" = treatment___3,
+         "Methotrexate" = treatment___4,
+         "Rituximab" = treatment___5,
+         "Ciclosporin" = treatment___6,
+         "Cyclophosphamide" = treatment___7,
+         "Other treatment" = treatment___8,
+         "Prednisone" = prednisolona.0,
+         "Prednisolone" = prednisolona.1,
+         "Deflazacort" = prednisolona.2,
+         "Meticorten" = prednisolona.3,
+         "Methylprednisolone" = prednisolona.4,
+         "Calcort" = prednisolona.5 ,
+         "Betamethasone" = prednisolona.6,
+         "Non corticosteroid" = prednisolona.7,
+         "Other corticosteroid" = prednisolona.8,
+         "Diabetes" = comorbidities.1,
+         "Hypertension" = comorbidities.2,
+         "Cancer" = comorbidities.3,
+         "Cardiovascular disease" = comorbidities.4,
+         "Osteoporosis" = comorbidities.5,
+         "Rheumatoid arthritis" = comorbidities.6,
+         "Multiple sclerosis" = comorbidities.7,
+         "Thyroid disease" = comorbidities.8,
+         "Other comorbidity" = comorbidities.9,
+         "No comorbidity" = comorbidities.11,
+         "IMSS" = health_provider.1,
+         "ISSSTE" = health_provider.2,
+         "PEMEX" = health_provider.3,
+         "SEDNA" = health_provider.4,
+         "SEMAR" = health_provider.5,
+         "SSa" = health_provider.6,
+         "SESA" = health_provider.7,
+         "IMSS-Bienestar" = health_provider.8,
+         "Private" = health_provider.9,
+         "Diagnostic lag" = time_symptoms)
+str(tb.pacientes)
+tb.pacientes <- na.omit(tb.pacientes)
+```
+
+```{r Summarizing data}
+
+tb.pacientes<-tb.pacientes %>%
+  filter(`Calculated Age` >= 11)
+
+summary(tb.pacientes$`Socioeconomic status`)
+summary(tb.pacientes$`Calculated Age`)
+summary(tb.pacientes$`Years living with SLE`)
+summary(tb.pacientes$`Diagnostic lag`)
+summary(tb.pacientes$`Total quality of life`)
+```
+
+
+## STEP 4: Runing model
+```{r Runing Multivariate Adaptive Regression Splines}
+# Helper packages
+library(dplyr)     # for data wrangling
+library(ggplot2)   # for awesome plotting
+
+# Modeling packages
+library(earth)     # for fitting MARS models
+library(caret)     # for automating the tuning process
+
+# Model interpretability packages
+library(vip)       # for variable importance
+library(pdp)       # for variable relationships
+
+# create a tuning grid
+hyper_grid <- expand.grid(
+  degree = 1:3, 
+  nprune = seq(2, 100, length.out = 5) %>% floor()
+)
+
+# cross validated model
+set.seed(NULL)
+cv_mars <- train(
+  x = subset(tb.pacientes, select = -`Total quality of life`),
+  y = tb.pacientes$`Total quality of life`,
+  method = "earth",
+  metric = "RMSE",
+  trControl = trainControl(method = "cv", number = 15),
+  tuneGrid = hyper_grid
+)
+
+# View results
+cv_mars$bestTune
+# Best model
+cv_mars$results %>%
+  filter(nprune == cv_mars$bestTune$nprune, degree == cv_mars$bestTune$degree)
+# Extract coefficients
+coef(cv_mars$finalModel)
+```
+
+## Ploting variable importance plots
+```{r Ploting variable importance}
+ggplot(cv_mars)
+p1 <- vip(cv_mars, 
+          num_features = 50, 
+          geom = "col", 
+          value = "gcv") +
+  ggtitle("GCV")
+
+p2 <- vip(cv_mars, 
+          num_features = 40, 
+          geom = "point", 
+          value = "rss") +
+  ggtitle("Varible importante based on RSS") +
+  theme_bw()
+  
+
+p2
+#ggsave("Importance_variable_MARS.png", p2, width = 15, height = 10, units = "cm", dpi = 300)
+
+gridExtra::grid.arrange(p1, p2, ncol = 2)
+
+# Extracting importance
+resultados.importancia <- vi(cv_mars)
+resultados.importancia <- as.data.frame(resultados.importancia)
+resultados.importancia[5,2]<-0.7 # Add a visible value to plot bar
+
+# Ploting
+resultados.importancia %>%
+  mutate(Variable = fct_reorder(Variable, Importance)) %>%
+  ggplot( aes(x=Variable, y=Importance, fill = Importance)) +
+    geom_bar(stat="identity",alpha=0.5, width=.25, color = "black", size = 0.25) +
+    coord_flip() +
+    xlab("") +
+    ylab("Relative importance") +
+    theme_bw() +
+    scale_fill_gradient(low = "gray90", high = "purple")+
+  scale_x_discrete(labels = c("Diagnostic lag",
+                              "Corticosteroid",
+                              "Socioeconomic status",
+                              "Quality of life perception",
+                              "Health perception")) +
+  ggtitle("Variable importance based on RSS") 
+ggsave("variable.importance.png", plot = last_plot(), device = png, width = 16, height = 10, units = c("cm"), dpi = 300)
+```
+
+
+## Partial plots
+```{r Partial plots}
+# plot results
+
+g1 <- partial(cv_mars, pred.var = "Health perception", grid.resolution = 10) %>% 
+  ggplot(aes(x=`Health perception`  , y=`yhat`)) + geom_line() + ylab("Total Quality of life") + ggtitle("Health perception partial-dependence") + theme_bw() + theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"))
+
+g2 <- partial(cv_mars, pred.var = "Quality of life perception", grid.resolution = 10) %>% 
+  ggplot(aes(x=`Quality of life perception`  , y=`yhat`)) + geom_line() + ylab("Total Quality of life")+ ggtitle("Quality of life perception partial-dependence") + theme_bw() + theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"))
+
+g3 <- partial(cv_mars, pred.var = "Socioeconomic status", grid.resolution = 10) %>% 
+  ggplot(aes(x=`Socioeconomic status`  , y=`yhat`)) + geom_line() + ylab("Total Quality of life")+ ggtitle("Socioeconomic status partial-dependence") + theme_bw() + theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"))
+
+g4 <- partial(cv_mars, pred.var = "Corticosteroid", grid.resolution = 10) %>% 
+  ggplot(aes(x=`Corticosteroid`  , y=`yhat`)) + geom_line() + ylab("Total Quality of life") + theme_bw() +
+  ggtitle("Corticosteroid partial-dependence")+theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"))
+
+g5 <- partial(cv_mars, pred.var = "Diagnostic lag", grid.resolution = 10) %>%   ggplot(aes(x=`Diagnostic lag`  , y=`yhat`)) + geom_line() + ylab("Total Quality of life") + ggtitle("Diagnostic lag partial-dependence") + theme_bw() + theme(plot.margin = unit(c(0.5, 0.5, 0.5, 0.5), "cm"))
+
+# Display plots side by side
+library(cowplot)
+panel.plot<-plot_grid(g1,g2,g3,g4,g5, labels = c("A", "B", "C","D","E")) 
+ggsave("Partial_dependences.png", width = 37, height = 20, units = "cm", dpi = 300)
+```
+
+
+```{r 3D Healt and QoL perpections}
+g6 <- partial(cv_mars, pred.var = c("Health perception","Quality of life perception"), grid.resolution = 40) 
+png(file="Perception-variables_interaction_3D.png",
+    width = 30, 
+    height = 20, 
+    units = "cm", 
+    res = 150)
+library(plot3D)
+points3D(x =  g6$`Health perception`,
+       y = g6$`Quality of life perception`,
+       z = g6$yhat,
+       pch = 20,
+       cex = 1.1,
+       ticktype = "simple",
+       theta = 30,
+       phi = 20,
+       bty ="g",
+       main = "Perception-variables interaction", 
+       xlab = "Health perception",
+       ylab ="Quality of life perception", 
+       zlab = "Total Quality of life",
+       clab = c("Total Quality of life", "score"),
+       colkey = list(length = 0.5, 
+                     width = 0.5, 
+                     cex.clab = 1.4, 
+                     dist = -0.05,
+                     cex.axis = 1.4),
+       cex.lab = 1.5,
+       cex.main = 1.9
+)
+dev.off()
+```
+
+```{r 3D Socioeconomic and Corticosteroid}
+g7 <- partial(cv_mars, pred.var = c("Corticosteroid","Socioeconomic status"), grid.resolution = 40) 
+png(file="Corticosteroid_and_Socioeconomic-variables_interaction_3D.png",
+    width = 30, 
+    height = 20, 
+    units = "cm", 
+    res = 150)
+library(plot3D)
+points3D(x =  g7$`Corticosteroid`,
+       y = g7$`Socioeconomic status`,
+       z = g7$yhat,
+       pch = 20,
+       cex = 2,
+       ticktype = "simple",
+       theta = 30,
+       phi = 20,
+       bty ="g",
+       main = "Socioeconomic status & Corticosteroid interaction", 
+       xlab = "Corticosteroid",
+       ylab ="Socioeconomic status", 
+       zlab = "Total Quality of life",
+       clab = c("Total Quality of life", "score"),
+       colkey = list(length = 0.5, 
+                     width = 0.5, 
+                     cex.clab = 1.4, 
+                     dist = -0.05,
+                     cex.axis = 1.4),
+       cex.lab = 1.5,
+       cex.main = 1.9
+)
+dev.off()
+```
+
+
+```{r 3D Socioeconomic and Diagnostic lag}
+g8 <- partial(cv_mars, pred.var = c("Diagnostic lag","Socioeconomic status"), grid.resolution = 40) 
+png(file="Diagnostic-Lag_and_Socioeconomic-variables_interaction_3D.png",
+    width = 30, 
+    height = 20, 
+    units = "cm", 
+    res = 150)
+library(plot3D)
+points3D(x =  g8$`Diagnostic lag`,
+       y = g8$`Socioeconomic status`,
+       z = g8$yhat,
+       pch = 20,
+       cex = 2,
+       ticktype = "simple",
+       theta = 30,
+       phi = 20,
+       bty ="g",
+       main = "Socioeconomic status & Diagnostic-lag interaction", 
+       xlab = "Diagnostic lag",
+       ylab ="Socioeconomic status", 
+       zlab = "Total Quality of life",
+       clab = c("Total Quality of life", "score"),
+       colkey = list(length = 0.5, 
+                     width = 0.5, 
+                     cex.clab = 1.4, 
+                     dist = -0.05,
+                     cex.axis = 1.4),
+       cex.lab = 1.5,
+       cex.main = 1.9
+)
+dev.off()
+```
+
+
+```{r 3D Corticosteroid and Diagnostic lag}
+g9 <- partial(cv_mars, pred.var = c("Diagnostic lag","Corticosteroid"), grid.resolution = 40) 
+png(file="Diagnostic-lag_and_Corticosteroid-variables_interaction_3D.png",
+    width = 30, 
+    height = 20, 
+    units = "cm", 
+    res = 150)
+library(plot3D)
+points3D(x =  g9$`Diagnostic lag`,
+       y = g9$`Corticosteroid`,
+       z = g9$yhat,
+       pch = 20,
+       cex = 2,
+       ticktype = "simple",
+       theta = 65,
+       phi = 20,
+       bty ="g",
+       main = "Corticosteroid & Diagnostic-lag interaction", 
+       xlab = "Diagnostic lag",
+       ylab ="Corticosteroid", 
+       zlab = "Total Quality of life",
+       clab = c("Total Quality of life", "score"),
+       colkey = list(length = 0.5, 
+                     width = 0.5, 
+                     cex.clab = 1.4, 
+                     dist = -0.05,
+                     cex.axis = 1.4),
+       cex.lab = 1.5,
+       cex.main = 1.9
+)
+dev.off()
+```
+
+```{r}
+library(png)
+img1 <- readPNG("Perception-variables_interaction_3D.png")
+
+ggplot2::ggplot() + ggplot2::annotation_custom(grid::rasterGrob("Perception-variables_interaction_3D.png",
+                                                width=ggplot2::unit(1,"npc"),
+                                                height=ggplot2::unit(1,"npc")),
+                               -Inf, Inf, -Inf, Inf)
+```
+
+
+## References:
+
+<https://acca3003.medium.com/como-usar-python-en-rstudio-335f953c0efd>
+<https://tecadmin.net/how-to-install-anaconda-on-debian-11/>
+<https://support.posit.co/hc/en-us/articles/360023654474-Installing-and-Configuring-Python-with-RStudio>
+<https://jtr13.github.io/cc21/d-plot-in-r.html>

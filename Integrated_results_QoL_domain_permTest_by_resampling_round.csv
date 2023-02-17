@@ -1,0 +1,11 @@
+,Names,P_value,Expected_difference,Standar_error
+1,resultados.remuestreo.PermTest.environmental_RedCap.csv,0.011,1.12,0.33
+2,resultados.remuestreo.PermTest.environmental_Twins.csv,0.000,2.10,0.32
+3,resultados.remuestreo.PermTest.physical_RedCap.csv,0.000,2.89,0.32
+4,resultados.remuestreo.PermTest.physical_Twins.csv,0.000,4.30,0.33
+5,resultados.remuestreo.PermTest.psicologico_RedCap.csv,0.002,1.61,0.39
+6,resultados.remuestreo.PermTest.psicologico_Twins.csv,0.000,2.18,0.41
+7,resultados.remuestreo.PermTest.social_RedCap.csv,0.001,2.13,0.47
+8,resultados.remuestreo.PermTest.social_Twins.csv,0.004,2.01,0.48
+9,resultados.remuestreo.PermTest.totalQoL_RedCap.csv,0.000,7.67,1.26
+10,resultados.remuestreo.PermTest.totalQoL_Twins.csv,0.000,10.49,1.21

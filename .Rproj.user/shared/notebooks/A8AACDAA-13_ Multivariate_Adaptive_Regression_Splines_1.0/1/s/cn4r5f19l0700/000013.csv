@@ -1,0 +1,9 @@
+"0","rglwidget(x =  g5$`Health perception`,
+       y = g5$`Quality of life perception`,
+       z = g5$yhat,
+       type = 's', 
+       radius = .1)
+"
+"2","Error in rglwidget(x = g5$`Health perception`, y = g5$`Quality of life perception`,  : 
+  First argument should be an rgl scene.
+"

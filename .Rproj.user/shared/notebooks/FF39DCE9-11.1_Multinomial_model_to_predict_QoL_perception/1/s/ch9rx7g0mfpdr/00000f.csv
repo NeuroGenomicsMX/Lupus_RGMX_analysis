@@ -1,0 +1,7 @@
+"0","tb.pacientes<-tb.pacientes %>%"
+"0","  select(-lupus_dxmed,"
+"0","         -dx_time_v2,"
+"0","         -antimalarics,"
+"0","         -corticoesteroids,"
+"0","         -corticosteroids_dosis,"
+"0","         -biological_tx)"

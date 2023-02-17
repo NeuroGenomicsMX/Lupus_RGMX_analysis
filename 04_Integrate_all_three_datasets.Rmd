@@ -1,0 +1,195 @@
+---
+title: "Binding all three databases"
+author: "Domingo Martínez"
+date: "2023-01-30"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this script we will bind all three databases.
+
+In this integration we will take into consideration the variables listed following:
+
+- lupus: 1 indicates a participant diagnosed with LES.
+         2 indicates a participant NON-diagnosed with LES.  
+
+- sex: 1 or sex___1 indicates female participant.
+       2 or sex___2 indicates male participant.
+
+- calculated_age: age calculated automatically based on birthday.
+
+- bref1: quality of life perception, how would you rate your QoL?
+
+- bref2: healt perception, how satisfied are you with your health?
+
+- cal_saludfisica:  physical domain of quality of life (QoL).
+
+- calc_psicologico: psychological domain of QoL.
+
+- calc_relacionesociales: social domain of QoL.
+
+- calc_ambiente: environmental domain od QoL.
+
+- cal_totalcv: aggregated quality of life, a score greater than 40 indicates a high quality of life.
+
+## STEP 1: Reading all three databases
+```{r reading databases}
+library(tidyverse)
+tb.SLE.patients <- read.csv("DATA_2023-01-05_completas/DATA_2023-01-05_0147_Complete_db_patients_under_SLE_medication_5.csv")
+tb.RedCap.volunters <- read.csv("DATA_2023-01-05_completas/DATA_2023-01-05_0147_Complete_db_controls_from_RedCap.csv")  
+tb.Twins.volunters <- read.csv("DATA_2023-01-05_completas/DATA_2023-01-13_twin_control_lupus.csv")
+```
+
+## STEP 2: Picking and renaming variables of interest
+
+```{r Picking formating and renaming variables of interes SLE patients}
+tb.SLE.patients<-tb.SLE.patients %>%
+  select(lupus,
+         sex___1, sex___2,
+         calculated_age,
+         bref1, bref2,
+         calc_ambiente,
+         cal_saludfisica,
+         calc_psicologico,
+         calc_relacionesociales,
+          cal_totalcv) %>%
+  rename("Lupus" = lupus,
+         "Female" = sex___1,
+         "Male" = sex___2,
+         "Calculated Age" = calculated_age,
+         "Quality of life perception" = bref1,
+         "Health perception" = bref2,
+         "Environmental QoL-domain" = calc_ambiente,
+         "Physical health QoL-domain" = cal_saludfisica,
+         "Psychologial QoL-domain" = calc_psicologico,
+         "Social relations QoL-domain" = calc_relacionesociales,
+         "Total quality of life" = cal_totalcv)
+## Formating variables
+tb.SLE.patients<-tb.SLE.patients %>%
+  mutate(Lupus = as_factor(Lupus),
+         Female = as_factor(Female),
+         Male = as_factor(Male))
+## Reordering factors
+  tb.SLE.patients$Female<-tb.SLE.patients$Female %>%
+  recode_factor("1" = "1", "0" = "0")
+
+tb.SLE.patients$Male <- tb.SLE.patients$Male %>%
+  recode_factor("1" = "1", "0" = "0")
+## Aggregate group label
+tb.SLE.patients$Group <- rep("SLEpatients",length(tb.SLE.patients$Lupus))
+str(tb.SLE.patients)
+```
+
+```{r Picking formating and renaming variables of interes RedCap volunters}
+tb.RedCap.volunters<-tb.RedCap.volunters%>%
+  select(lupus,
+         sex___1, sex___2,
+         calculated_age,
+         bref1, bref2,
+         calc_ambiente,
+         cal_saludfisica,
+         calc_psicologico,
+         calc_relacionesociales,
+          cal_totalcv) %>%
+  rename("Lupus" = lupus,
+         "Female" = sex___1,
+         "Male" = sex___2,
+         "Calculated Age" = calculated_age,
+         "Quality of life perception" = bref1,
+         "Health perception" = bref2,
+         "Environmental QoL-domain" = calc_ambiente,
+         "Physical health QoL-domain" = cal_saludfisica,
+         "Psychologial QoL-domain" = calc_psicologico,
+         "Social relations QoL-domain" = calc_relacionesociales,
+         "Total quality of life" = cal_totalcv)
+## Formating variables
+tb.RedCap.volunters<-tb.RedCap.volunters %>%
+  mutate(Lupus = as_factor(Lupus),
+         Female = as_factor(Female),
+         Male = as_factor(Male))
+## Reordering factors
+  tb.RedCap.volunters$Female<-tb.RedCap.volunters$Female%>%
+  recode_factor("1" = "1", "0" = "0")
+
+tb.RedCap.volunters$Male<-tb.RedCap.volunters$Male %>%
+  recode_factor("1" = "1", "0" = "0")
+## Aggregate group label
+tb.RedCap.volunters$Group<-rep("RedCapVolunter", length(tb.RedCap.volunters$Lupus))
+str(tb.SLE.patients)
+```
+
+```{r Picking formating and renaming variables of interes Twins volunters}
+## Formating class
+tb.Twins.volunters$sexo <- as.factor(tb.Twins.volunters$sexo)
+## Now, let's calculate # sex___1 and sex___2 variables
+tb.Twins.volunters$sex___1 <-tb.Twins.volunters$sexo %>%
+  recode_factor("M" = "1", "H" = "0")
+tb.Twins.volunters$sex___2 <-tb.Twins.volunters$sexo %>%
+  recode_factor("M" = "1", "H" = "0")
+## Calculating lupus variabl
+tb.Twins.volunters$Lupus <- rep("2", length(tb.Twins.volunters$record_id))
+tb.Twins.volunters$Lupus<- as.factor(tb.Twins.volunters$Lupus)
+## Renaming variables
+tb.Twins.volunters<-tb.Twins.volunters %>%
+  select(Lupus,
+         sex___1,
+         sex___2,
+         edad,
+         qol_bref1,
+         qol_bref2,
+         qol_ambiente,
+         qol_saludfisica,
+         qol_psicologico,
+         qol_relacionessociales,
+         qol_total) %>%
+  rename("Female" = sex___1,
+         "Male" = sex___2,
+         "Calculated Age" = edad,
+         "Quality of life perception" = qol_bref1,
+         "Health perception" = qol_bref2,
+         "Environmental QoL-domain" = qol_ambiente,
+         "Physical health QoL-domain" = qol_saludfisica,
+         "Psychologial QoL-domain" = qol_psicologico,
+         "Social relations QoL-domain" = qol_relacionessociales,
+         "Total quality of life" = qol_total)
+## Adding group label
+tb.Twins.volunters$Group <- rep("TwinVolunter", length(tb.Twins.volunters$Female))
+```
+
+## STEP 3: Binding all three datasets
+```{r binding all three datasets}
+tb.completo<-bind_rows(tb.SLE.patients,
+          tb.RedCap.volunters,
+          tb.Twins.volunters)
+
+tb.completo$Group <-  as.factor(tb.completo$Group)
+
+str(tb.completo)
+write.csv(tb.completo, "DATA_2023-01-05_completas/base.de.datos.integrada.csv")
+```
+
+## STEP 4: Checking data quality
+```{r Visualazing NA}
+sum(is.na(tb.completo))
+# There are 7387 missing values
+library(naniar)
+vis_miss(tb.completo)
+```
+
+```{r Visualazing pairs plot}
+library(GGally)
+ggpairs(tb.completo, aes(colour=Group, alpha=0.75))
+ggsave("pair.plot.base.de.datos.integrada.png", plot = last_plot(), width = 60, height = 55, units = c("cm"), device = png, dpi = 300)
+```
+
+NOTES:
+
+There is a participant approximately 1200 years old. We need to impute or delete that observation.
+
+In SLE patients, age only correlated with environmental domain of QoL.
+
+
+

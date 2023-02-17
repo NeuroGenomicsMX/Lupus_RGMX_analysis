@@ -1,0 +1,1 @@
+"0","g6 <- partial(cv_mars, pred.var = c(""Health perception"",""Quality of life perception""), grid.resolution = 40) "

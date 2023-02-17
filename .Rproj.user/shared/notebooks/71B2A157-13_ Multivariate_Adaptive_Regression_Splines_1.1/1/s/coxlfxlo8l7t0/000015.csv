@@ -1,0 +1,36 @@
+"0","png(file=""Rheumatoid_and_Corticosteroid-variables_interaction_3D.png"",
+    width = 30, 
+    height = 20, 
+    units = ""cm"", 
+    res = 150)
+library(plot3D)
+points3D(x =  g9$`Rheumatoid arthritis`,
+       y = g9$`Corticosteroid`,
+       z = g9$yhat,
+       pch = 20,
+       cex = 1.3,
+       ticktype = ""simple"",
+       theta = 30,
+       phi = 35,
+       bty =""g"",
+       main = ""Corticosteroid & Rheumatoid-arthritis interaction"", 
+       xlab = ""Rheumatoid arthritis"",
+       ylab =""Corticosteroid"", 
+       zlab = ""Total Quality of life"",
+       clab = c(""Total Quality of life"", ""score""),
+       colkey = list(length = 0.5, 
+                     width = 0.5, 
+                     cex.clab = 1.4, 
+                     dist = -0.05,
+                     cex.axis = 1.4),
+       cex.lab = 1.5,
+       cex.main = 1.9
+)
+dev.off()
+"
+"1","null device "
+"1","
+"
+"1","          1 "
+"1","
+"

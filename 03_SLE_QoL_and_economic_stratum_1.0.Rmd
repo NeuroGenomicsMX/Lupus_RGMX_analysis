@@ -1,0 +1,204 @@
+---
+title: "03 SLE Quality of life and economic stratum"
+author: "Domingo Martínez"
+date: "2023-01-27"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this script we will try to answer the following question:
+
+*total quality of life changes in SLE-individuals across different socioeconomic levels?*
+
+Now we only consider SLE individual. In this analysis we will take into consideration the variables listed following:
+
+- cal_totalcv: aggregated quality of life, a score greater than 40 indicates a high quality of life.
+
+- socioeconomic_status: aggregate economic level/status.
+
+## STEP 1: Reading database
+```{r Reading database}
+library(tidyverse)
+tb.pacientes <- read_csv("DATA_2023-01-05_completas/DATA_2023-01-05_0147_Complete_db_patients_under_SLE_medication_5.csv")
+```
+
+## STEP 2: Selecting variables of interest
+```{r Picking variables of interest}
+tb.pacientes <- tb.pacientes %>%
+  select(lupus,
+         sex___1, sex___2,
+         calculated_age,
+         bref1, bref2,
+         calc_ambiente,
+         cal_saludfisica,
+         calc_psicologico,
+         calc_relacionesociales,
+          cal_totalcv,
+         socioeconomic_status
+         )
+```
+
+## STEP 3: Checking how many NAs we had
+<https://cran.r-project.org/web/packages/naniar/vignettes/naniar-visualisation.html>
+```{r Checking NAs}
+sum(is.na(tb.pacientes))
+# There are 1917 missing values
+library(naniar)
+vis_miss(tb.pacientes)
+tb.pacientes<-na.omit(tb.pacientes)
+```
+
+Finally, we get 966 SLE patients with completed registry.
+
+## STEP 4: Renaming variables
+```{r Renaming variables}
+library(dplyr)
+tb.pacientes <- tb.pacientes %>%
+  rename("Lupus" = lupus,
+         "Female" = sex___1,
+         "Male" = sex___2,
+         "Calculated Age" = calculated_age,
+         "Quality of life perception" = bref1,
+         "Health perception" = bref2,
+         "Environmental QoL-domain" = calc_ambiente,
+         "Physical health QoL-domain" = cal_saludfisica,
+         "Psychologial QoL-domain" = calc_psicologico,
+         "Social relations QoL-domain" = calc_relacionesociales,
+         "Total quality of life" = cal_totalcv,
+         "Socioeconomic status" = socioeconomic_status)
+```
+
+
+## STEP 5: Formating class of variables
+```{r Formating class of variables}
+str(tb.pacientes)
+#library(tidyverse)
+tb.pacientes <- tb.pacientes %>%
+  mutate(Lupus = as_factor(Lupus),
+         Female = as_factor(Female),
+         Male = as_factor(Male)) 
+
+str(tb.pacientes)
+```
+
+```{r Re-ordering factors}
+tb.pacientes$Female <- tb.pacientes$Female %>%
+  recode_factor("1" = "1", "0" = "0")
+
+tb.pacientes$Male <- tb.pacientes$Male %>%
+  recode_factor("1" = "1", "0" = "0")
+
+str(tb.pacientes)
+```
+## STEP 6 Checking female-male proportion
+```{r}
+table(tb.pacientes[,2:3])
+```
+
+The SLE patients groups comprise 966 participants, 906 of them registered as women so, we have next proportions:
+
+0.9378882 Women.
+0.0621118 Men.
+
+## STEP 7: Recoding socioeconomic status to categorical level, according to AMAI.
+
+According to AMAI, *the evaluation of socioeconomic status* contemplates 7 levels:
+     A/B (202+ points)
+     C+ (168-201) 
+     C (141-167)
+     C- (116-140)
+     D+ (95-115)
+     D (48-94) and 
+     E (0-47). 
+     
+A higher score implies a better capacity to fulfill the necessities within a household, next we will recode the points to categorical level.
+
+```{r Calculating socioeconomic levels}
+# We use cut() function to put breaks and get labels. And save the result into new column called "Socioeconomic level"
+tb.pacientes$`Socioeconomic level` <- cut(tb.pacientes$`Socioeconomic status`,
+    breaks = c(0,47,94,115,140,167,201,1000),
+    labels = c("E","D","D+","C-","C","C+","A/B"),
+    right = T)
+str(tb.pacientes)
+# Let's see how many participants belong to each level.
+table(tb.pacientes$`Socioeconomic level`)
+```
+## STEP 8: Summary of data
+```{r}
+summary(tb.pacientes)
+```
+**IMPORTANT:** We had atypical ages so, we need to control such variable, also we had sex imbalance, then we need to control such variable too.
+
+## STEP 9: The quality of life in SLE patients change among economic stratum?
+
+Aplying Kruskal.Wallis test by socioeconomic level to test differences in quality of life, specifically, ´Total quality of life´
+```{r Testing total quality of life among socioeconomic levels}
+kruskal.test(tb.pacientes$`Total quality of life`,
+             tb.pacientes$`Socioeconomic level`)
+```
+
+Yes, there are differences of quality of life depending on the socioeconomic leve, now we have to find where such differences are.
+
+```{r Finding differences of quality of life by pairwise permutation test}
+library(rcompanion)
+TQoL <- tb.pacientes$`Total quality of life`
+SocioeconomicLevel <- as.character(tb.pacientes$`Socioeconomic level`)
+str(SocioeconomicLevel)
+resultados.pairwise <-pairwisePermutationTest( x=tb.pacientes$`Total quality of life`, 
+                         g=SocioeconomicLevel,
+                         method = "fdr")
+resultados.pairwise
+resultados.pairwise$p.adjust.expanded <- format(resultados.pairwise$p.adjust,scientific = F)
+resultados.pairwise
+```
+**INTERPRETATION:** 
+There is no difference between C and C-
+C is over D by 4.079 points in TQoL scale.
+There is only marginal difference between C and D+
+C is over E by 4.358 points in TQoL scale.
+C- is over D by 4.476 in TQoL scale.
+Between C- and D+ there is no difference.
+C- is higher than E by 4.285 points in the TQoL scale.
+D+ is higher than D by 5.884 points in the TQoL scale.
+There is only a marginal differences between D and E.
+D+ is higher than E by 4.819 points in the TQoL scale.
+
+## STEP 10 Ploting such comparison
+
+<https://stackoverflow.com/questions/17084566/put-stars-on-ggplot-barplots-and-boxplots-to-indicate-the-level-of-significanc>
+
+<https://r-graph-gallery.com/269-ggplot2-boxplot-with-average-value.html>
+
+```{r Ploting}
+# Library
+library(ggplot2)
+library(ggsignif)
+
+# plot
+p <- ggplot(tb.pacientes, aes(x=`Socioeconomic level`, y=`Total quality of life`, fill=`Socioeconomic level`)) +
+    geom_boxplot(alpha=0.5) +
+  ylim(15,140) +
+    stat_summary(fun=mean, geom="point", shape=5, size=2.5, color="black") +
+    scale_fill_brewer(palette="RdPu") +
+  theme_bw() +
+  geom_signif(comparisons=list(c("D+", "E")), annotations="***", y_position = 90, size = 0.2) +
+  geom_signif(comparisons=list(c("D+", "D")), annotations="***", y_position = 80, size = 0.2) +
+  geom_signif(comparisons=list(c("C-", "E")), annotations="***", y_position = 100, size = 0.2) +
+  geom_signif(comparisons=list(c("C-", "D")), annotations="***", y_position = 110, size = 0.2) +
+  geom_signif(comparisons=list(c("C", "E")), annotations="***", y_position = 120, size = 0.2) +
+  geom_signif(comparisons=list(c("C", "D")), annotations="***", y_position = 130, size = 0.2) +
+  ggtitle("Quality of life by economic stratum in SLE patients")
+p
+
+ggsave("SLE_QoL_and_economic_stratum.png", units = c("cm"), dpi = 300 )
+```
+
+
+
+
+
+
+

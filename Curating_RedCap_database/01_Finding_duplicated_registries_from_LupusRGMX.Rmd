@@ -1,0 +1,177 @@
+---
+title: "Curating duplicated registries"
+author: "Domingo Martínez"
+date: "2023-01-08"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Inthis sript we will find duplicated registries into the RedCap Lupus Project Production <https://redcap.lavis.unam.mx/apps/redcap/redcap_v10.9.2/DataExport/index.php?pid=88>, once we identified that duplicated registries, it will be necessary to handly verify which of them is the most complete depending on the purpose of the studies.
+
+**IMPORTANT:** When the script finished, the original database was eliminated to avoid misuse of the data.
+
+## Reading data base
+```{r Readig database}
+library(dplyr)
+library(forcats)
+tb.LupusRGMX<-read.csv("LupusProjectProducti_DATA_2023-01-08_1704.csv")
+glimpse(tb.LupusRGMX)
+```
+## Counting how many times each cellphone is repeated
+```{r Cellphone number cross tabulation}
+# Creating a cross table for cellphone numbers
+cellphones <- tb.LupusRGMX %>%
+  group_by(cell_number) %>%
+  tally() %>%
+  na.omit() %>%
+  mutate(n=as.factor(n)) %>%
+  glimpse()
+# Let's see how many times each registry appear.
+  levels(cellphones$n)
+# Now we will eliminate those appearing once.
+cellphones <- cellphones %>%
+  filter(n!=1)
+```
+
+## Match repeated cellphones to ID registries
+```{r Matching duplicated cellphone to record_id}
+cellphones.vector <- cellphones$cell_number
+
+tb.results.1 <- tibble(record_id = numeric(),
+                       cell_number = numeric())
+
+for (i in cellphones.vector) {
+    result<-tb.LupusRGMX %>%
+    select(record_id, cell_number) %>%
+    filter(cell_number == i)
+tb.results.1 <- rbind(tb.results.1,result)
+}
+write.csv(tb.results.1, "duplicate_registries_01.csv")
+```
+
+## Counting how many times each email is repeated
+```{r Cellphone number cross tabulation}
+# Creating a cross table for emails
+emails <- tb.LupusRGMX %>%
+  group_by(email) %>%
+  tally() %>%
+  filter(email!="") %>%
+  mutate(n=as.factor(n)) %>%
+  glimpse()
+# Let's see how many times each registry appear.
+  levels(emails$n)
+# Now we will eliminate those appearing once.
+emails <- emails %>%
+  filter(n!=1)
+```
+
+## Match repeated emails to ID registries
+```{r Matching duplicated email to record_id}
+emails.vector <- emails$email
+
+tb.results.2 <- tibble(record_id = numeric(),
+                       cell_number = numeric())
+
+for (i in emails.vector) {
+    results<-tb.LupusRGMX %>%
+    select(record_id, email) %>%
+    filter(email == i)
+tb.results.2 <- rbind(tb.results.2,results)
+}
+write.csv(tb.results.2, "duplicate_registries_02.csv")
+```
+
+```{bash delete data set}
+cd ~/Documentos/LupusRGMX/Curating_RedCap_database/
+rm -rf LupusProjectProducti_DATA_2023-01-08_1704.csv
+```
+
+## 
+```{r read duplicated-registries inform}
+library(dplyr)
+library(forcats)
+# file.choose()
+tb.cuestionarios.complete<-read.csv("/home/domingo/Documentos/PosDoc_Liigh_Lupus/Analisis_tratamiento&calidad_de_vida/Curating_RedCap_database/LupusProjectProducti-Cuestionarioscomplet_DATA_2023-01-25_1721.csv")
+# Select variables of interest
+tb.cuestionarios.complete<-tb.cuestionarios.complete[ , -c(2,3,4,5,7) ]
+write.csv(tb.cuestionarios.complete, "informe_cuestionarios_completos.csv")
+```
+
+```{bash delete bd}
+cd ~/Documentos/LupusRGMX/Curating_RedCap_database/
+rm- rf LupusProjectProducti-Cuestionarioscomplet_DATA_2023-01-25_1721.csv
+```
+
+## From duplicated registries pick the most complete
+
+From the report titled ""informe_cuestionarios_completos.csv" we select those duplicated registries and will pick up the most complete registry, based on "Complete?" variables.
+
+The codes for this variables are:
+0	Incomplete
+1	Unverified
+2	Complete
+
+```{r reading both datasets}
+tb.duplicated.registries <- read.csv("duplicate_registries_02.csv")
+tb.completed.questionnaires <- read.csv("informe_cuestionarios_completos.csv")
+```
+
+Get a unique list for duplicated mails
+```{r list of duplicated mails}
+list.of.duplicated<- unique(tb.duplicated.registries$email)
+str(list.of.duplicated)
+table(list.of.duplicated)
+```
+
+Iterate over duplicated-list to compare duplicated registries to select the most completed registries. Later, these registries can be removed from list
+```{r picking the most completed from duplicated registries}
+library(dplyr)
+
+mejores.id.de.los.repetidos <-tibble(id.mejor = as.numeric())
+
+for (i in 1:length(list.of.duplicated)) {
+  correo <-list.of.duplicated[i]
+
+  a <- tb.completed.questionnaires %>%
+    filter(email == correo)
+  
+  suma_completo <- apply(a[,-c(1,2,3)], 1,sum)
+  
+  record_id <- a$record_id 
+   
+  c <- tibble(record_id, suma_completo)
+  
+  d <- c[order(-suma_completo),]
+  id.best  <- d[1,1] # This record_is is the most completes from the n-mail repeted
+ 
+  mejores.id.de.los.repetidos <- rbind(mejores.id.de.los.repetidos,id.best) 
+    
+}
+
+```
+
+## Now let's create a list of worst registries
+
+That's mean, from the repeated registries, let's take off the best registry and kept the worst registries in a black list. These registries will be drooped off from the data set of LupusRGMX.
+
+From tb.duplicated.registries let's take record_id column
+```{r making a list of trash registries}
+es.el.registro.mas.completo <-ids.repetidos$record_id %in% mejores.id.de.los.repetidos$record_id
+
+tb.es.el.registro.mas.completo<-tibble(ids.repetidos, es.el.registro.mas.completo)
+
+lista.registros.duplicados.para.eliminar <- tb.es.el.registro.mas.completo %>%
+  filter(es.el.registro.mas.completo == F)
+
+write.csv(lista.registros.duplicados.para.eliminar, "lista.registros.duplicados.para.eliminar.csv")
+```
+
+```{bash removing databases with mails}
+cd ~/Documentos/LupusRGMX/Curating_RedCap_database/
+rm- rf duplicate_registries_01.csv duplicate_registries_02.csv informe_cuestionarios_completos.csv 
+
+```
+

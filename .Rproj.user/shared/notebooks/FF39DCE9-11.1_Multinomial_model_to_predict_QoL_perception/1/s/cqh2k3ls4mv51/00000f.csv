@@ -1,0 +1,4 @@
+"0","variables.interes<-variables.interes %>%"
+"0","  filter(calculated_age >= 18 & calculated_age <= 120)"
+"0","#ggpairs(variables.interes)"
+"0","#ggsave(""pair.plot.datos.para.modelo.png"", plot = last_plot(), width = 60, height = 55, units = c(""cm""), device = png, dpi = 300)"

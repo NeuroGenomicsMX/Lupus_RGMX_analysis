@@ -1,0 +1,36 @@
+"0","png(file=""Corticosteroid_and_Socioeconomic-variables_interaction_3D.png"",
+    width = 30, 
+    height = 20, 
+    units = ""cm"", 
+    res = 150)
+library(plot3D)
+points3D(x =  g7$`Corticosteroid`,
+       y = g7$`Socioeconomic status`,
+       z = g7$yhat,
+       pch = 20,
+       cex = 2.5,
+       ticktype = ""simple"",
+       theta = 30,
+       phi = 20,
+       bty =""g"",
+       main = ""Socioeconomic status & Corticosteroid interaction"", 
+       xlab = ""Corticosteroid"",
+       ylab =""Socioeconomic status"", 
+       zlab = ""Total Quality of life"",
+       clab = c(""Total Quality of life"", ""score""),
+       colkey = list(length = 0.5, 
+                     width = 0.5, 
+                     cex.clab = 1.4, 
+                     dist = -0.05,
+                     cex.axis = 1.4),
+       cex.lab = 1.5,
+       cex.main = 1.9
+)
+dev.off()
+"
+"1","null device "
+"1","
+"
+"1","          1 "
+"1","
+"

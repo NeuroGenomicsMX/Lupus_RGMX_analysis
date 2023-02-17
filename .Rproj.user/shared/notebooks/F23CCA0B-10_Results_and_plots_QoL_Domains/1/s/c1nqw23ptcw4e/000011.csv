@@ -1,0 +1,4 @@
+"0","library(cowplot)"
+"0","panel.plot<-plot_grid(pa,pb,pc,pd, labels = c(""A"", ""B"", ""C"",""D""))"
+"0","ggsave(""Panel_plot_QoL_domains.png"", width = 30, height = 20, units = ""cm"", dpi = 300)"
+"0",""

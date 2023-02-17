@@ -1,0 +1,11 @@
+"","Names","P_value","Expected_difference","Standar_error"
+"1","resultados.remuestreo.PermTest.environmental_RedCap.csv","0.01114778",1.1218125,0.329217146623308
+"2","resultados.remuestreo.PermTest.environmental_Twins.csv","0.000003346204",2.10127083333333,0.318578432412504
+"3","resultados.remuestreo.PermTest.physical_RedCap.csv","0.0000000006871527",2.89307142857142,0.3223471749596
+"4","resultados.remuestreo.PermTest.physical_Twins.csv","0.000000000000000003330669",4.29678571428571,0.331312349318231
+"5","resultados.remuestreo.PermTest.psicologico_RedCap.csv","0.001540934",1.60986111111111,0.387937112998569
+"6","resultados.remuestreo.PermTest.psicologico_Twins.csv","0.00002526737",2.17544444444444,0.405002897038516
+"7","resultados.remuestreo.PermTest.social_RedCap.csv","0.0006292249",2.13,0.468211529232737
+"8","resultados.remuestreo.PermTest.social_Twins.csv","0.003994123",2.01327777777778,0.475697231383996
+"9","resultados.remuestreo.PermTest.totalQoL_RedCap.csv","0.00001594663",7.66971626984123,1.26195377002306
+"10","resultados.remuestreo.PermTest.totalQoL_Twins.csv","0.0000000008079912",10.4873829365079,1.20841464674723

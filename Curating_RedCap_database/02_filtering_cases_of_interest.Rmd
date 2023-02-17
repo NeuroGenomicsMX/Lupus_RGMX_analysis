@@ -1,0 +1,104 @@
+---
+title: "Filtering cases of interest"
+author: "Domingo Martínez"
+date: "2023-01-25"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Here, we will filter the complete databases from RedCap attending two criterions:
+
+1. Drop out duplicated registries.
+2. From SLE patients, selecting those that already take medical treatment.
+
+## STEP 1: Droping out duplicated registries.
+
+We will eliminate those duplicated registries showed in the file titled:*lista.registros.duplicados.para.eliminar*, this is a black list containing all duplicated registries have to be eliminated.
+
+```{r reading black list}
+library(dplyr)
+black.list <- read.csv("lista.registros.duplicados.para.eliminar.csv")
+```
+
+```{r reading RedCap database}
+bd <- read.csv("LupusProjectProducti_DATA_2023-01-05_0147.csv")
+```
+
+```{r filtering duplicated registries}
+library(Hmisc)
+bd <- subset(bd, record_id %nin% black.list$record_id)
+```
+
+## STEP 2: Selecting SLE patients under medical treatment
+
+- The variable "lupus" indicate 1, if the participant has been SLE diagnosed.
+- The variable "prednisolona" indicate if participant takes corticosteroids, specifically:
+
+0	Prednisona
+1	Prednisolona
+2	Deflazacort
+3	Meticorten
+4	Metilprednisolona
+5	Calcort
+6	Betametazona
+7	No
+8	Otro
+
+Then, we will take those participants diagnosed with SLE (lupus == 1), and also we will exclude those participants don't taking any corticosteroid or taking other medication (i.e, "Otro".)
+
+- The variable “treatment” indicate what medications patient takes on a regular basis to treat SLE.
+
+0	treatment___0	Antimaláricos (Hidroxicloroquina, cloroquina, plaquenil)
+1	treatment___1	Corticoesteroides (Prednisona, prednisolona, deflazacort, meticorten, metilprednisolona, calcort, betametazona)
+2	treatment___2	Ácido micofenólico (Micofenolato, cellcept, mofetil)
+3	treatment___3	Azatioprina (imuran, azatrilem)
+4	treatment___4	Metotrexato (Ledertrexate)
+5	treatment___5	Rituximab
+6	treatment___6	Ciclosporina
+7	treatment___7	Ciclofosfamida
+8	treatment___8	Otros
+
+all these "treatment___n" variables indicate yes with 1, and not with 0.
+
+Thus, we also will select those taking any of those medications. We exclude those answering "Otros" (i.e. other medications) because we can't be sure that medicine is for treating SLE.
+
+Briefly, selection criteria are:
+
+- lupus == 1
+- prednisolona %in% c(0,1,2,3,4,5,6)
+- treatment %in% c(0,1,2,3,4,5,6,7,8)
+
+```{r picking SLE-diagnosed and taking corticosteroids or SLE treatment}
+bd1<-bd %>%
+  filter(lupus == 1) %>%
+  filter(prednisolona %in% c(0,1,2,3,4,5,6) | 
+           treatment___0 == 1 |
+           treatment___1 == 1 |
+           treatment___2 == 1 |
+           treatment___3 == 1 |
+           treatment___4 == 1 |
+           treatment___5 == 1 |
+           treatment___6 == 1 |
+           treatment___7 == 1 ) 
+bd1
+```
+
+
+## Exporting complete db of participants taking any SLE treatment or medication
+```{r exporting complete SLE db}
+write.csv(bd1, "DATA_2023-01-05_0147_Complete_db_patients_under_SLE_medication_5.csv")
+```
+
+## Picking and exporting controls database from RedCap
+```{r exporting controls database from RedCap}
+bd2<-bd %>%
+  filter(lupus == 2)
+write.csv(bd2, "DATA_2023-01-05_0147_Complete_db_controls_from_RedCap.csv")
+```
+
+
+
+

@@ -1,0 +1,8 @@
+"0","sum(is.na(tb.pacientes))"
+"1","[1]"
+"1"," 1917"
+"1","
+"
+"0","# There are 1917 missing values"
+"0","library(naniar)"
+"0","vis_miss(tb.pacientes)"

@@ -1,0 +1,3 @@
+"0","integrated.database<-integrated.database %>%"
+"0","  filter(`Calculated Age` >= 18 & `Calculated Age` <=100) %>%"
+"0","  select( -`...1` ) # Eliminating first column"

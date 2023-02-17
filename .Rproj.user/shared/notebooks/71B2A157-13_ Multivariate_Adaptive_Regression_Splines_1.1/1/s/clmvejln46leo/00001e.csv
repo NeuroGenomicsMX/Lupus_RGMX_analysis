@@ -1,0 +1,3 @@
+"0","# Best model"
+"0","cv_mars$results %>%"
+"0","  filter(nprune == cv_mars$bestTune$nprune, degree == cv_mars$bestTune$degree)"

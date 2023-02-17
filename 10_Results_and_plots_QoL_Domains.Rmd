@@ -1,0 +1,200 @@
+---
+title: "Results & plots QoL Domains"
+author: "Domingo Martínez"
+date: "2023-02-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+In this script we will summarize the results derived from scripts 05 to 09, which performed permutation test by resampling method to compensate the imbalance in sex and size into each group, as well as pairing ages.
+
+The results were exported to the folder named "Resultados_permutation_test_by_resampling" so, as first step we will index and reading the csv conteined in that folder.
+
+## STEP 1 Indexing and reading files.
+```{r Indexing and reading files}
+ruta.archivos <- 
+archivos.resultados<-list.files(path = "Resultados_permutation_test_by_resampling", full.names = T)
+lista.resultados <- lapply(archivos.resultados, read.csv)
+nombres.archivos <- list.files(path = "Resultados_permutation_test_by_resampling", full.names = F)
+```
+
+## STEP 2 Calculating expect pvalue and differences
+
+Here, we will compute mean p-value, and mean observer-difference with SE.
+
+```{r Computing expected pvalues, differences and SE}
+# Let's create a data frame to save results
+resultados.esperados <- data.frame(P_value = integer(),
+                                   Expected_difference = integer(),
+                                   Standar_error = integer())
+for (i in 1:length(lista.resultados)) {
+  pvalor.i<-mean(lista.resultados[[i]][["pvalor"]])
+  pvalor.i<-format(pvalor.i, scientific = F)
+  differencia.promedio.i <- mean(lista.resultados[[i]][["diferencia"]])
+  error.estandar.differencia <- sd(lista.resultados[[i]][["diferencia"]])
+  resultados.esperados.i <- data.frame(P_value = pvalor.i,
+                                       Expected_difference = differencia.promedio.i,
+                                       Standar_error = error.estandar.differencia)
+  resultados.esperados<-rbind(resultados.esperados, resultados.esperados.i)
+}
+
+## Adding a column with names
+resultados.esperados$Names <-nombres.archivos
+resultados.esperados<-resultados.esperados[,c(4,1:3)]
+## Exporting table of results
+write.csv(resultados.esperados, "Integrated_results_QoL_domain_permTest_by_resampling.csv")
+```
+
+## STEP 3: Calling the same data set used to analysis
+
+We need to create the same data set that was used to compute permutation test of QoL dimension by resampling.
+```{r Reading dataset}
+library(tidyverse)
+integrated.database<-read_csv("DATA_2023-01-05_completas/base.de.datos.integrada.csv")
+str(integrated.database)
+```
+
+We detected that some participants had atypical ages, for now we will removed from the analysis, *maybe in the future we can fix that ages*. But now, we will filter ages from 18 to 100 years.
+
+```{r Removing atypicalls ages}
+integrated.database<-integrated.database %>%
+  filter(`Calculated Age` >= 18 & `Calculated Age` <=100) %>%
+  select( -`...1` ) # Eliminating first column
+```
+
+Now, we will take off that uncompleted registries.
+```{r Removing registries with NAs}
+integrated.database<-na.omit(integrated.database)
+```
+After cleaning, we kept 1578 registries.
+
+Formating variables
+```{r Formating  variables}
+str(integrated.database)
+## Formating variables
+integrated.database<-integrated.database %>%
+  mutate(Lupus = as_factor(Lupus),
+         Female = as_factor(Female),
+         Male = as_factor(Male),
+         Group = as_factor(Group))
+## Reordering factors
+integrated.database$Female<-integrated.database$Female %>%
+  recode_factor("1" = "1", "0" = "0")
+integrated.database$Male<-integrated.database$Male %>%
+  recode_factor("1" = "1", "0" = "0")
+str(integrated.database)
+levels(integrated.database$Group)
+
+## Exporting integrated databse
+write.csv(integrated.database, "DATA_2023-01-05_completas/base.de.datos.con.la.que.se.grafico.plot.QoL.dimensions.csv")
+```
+
+## STEP 4: Plot the file call integrated.database
+```{r Ploting Total QoL between groups}
+# Library
+library(ggplot2)
+library(ggsignif)
+p <- ggplot(integrated.database, aes(x=`Group`, y=`Total quality of life`, fill=`Group`)) +
+  geom_boxplot(alpha=0.5) + ylim(10,105) +
+  stat_summary(fun=mean, geom="point", shape=5, size=2.5, color="black") +
+  scale_fill_manual(values = c("purple","white","gray"),
+                    labels=c('SLE patients', 'RedCap volunteers', "Twins volunteers")) +
+  scale_x_discrete(labels=c('SLE patients', 'RedCap volunteers', "Twins volunteers")) +
+  theme_bw() +
+  geom_signif(comparisons=list(c("SLEpatients", "RedCapVolunter")), annotations="***", y_position = 90, size = 0.2) +
+  geom_signif(comparisons=list(c("SLEpatients", "TwinVolunter")), annotations="***", y_position = 100, size = 0.2) + 
+  ggtitle("Total quality of life comparison")
+
+
+p
+ggsave("Total_QoL_comparative_groups.png", units = c("cm"), dpi = 300 )
+```
+
+Notas: <https://stackoverflow.com/questions/23564607/how-to-change-x-axis-tick-label-names-order-and-boxplot-colour-using-r-ggplot>
+
+## STEP 5: Make an individual graph for each QoL dimension
+
+### Plot A, Environmental QoL-domain
+```{r Plot A Environmental QoL-domain}
+# Library
+library(ggplot2)
+library(ggsignif)
+pa <- ggplot(integrated.database, aes(x=`Group`, y=`Environmental QoL-domain`, fill=`Group`)) +
+  geom_boxplot(alpha=0.5) + ylim(0,30) +
+  stat_summary(fun=mean, geom="point", shape=5, size=2.5, color="black") +
+  scale_fill_manual(values = c("purple","white","gray"),
+                    labels=c('SLE patients', 'RedCap volunteers', "Twins volunteers")) +
+  scale_x_discrete(labels=c('SLE patients', 'RedCap volunteers', "Twins volunteers")) +
+  theme_bw() +
+  geom_signif(comparisons=list(c("SLEpatients", "RedCapVolunter")), annotations="**", y_position = 22, size = 0.2) +
+  geom_signif(comparisons=list(c("SLEpatients", "TwinVolunter")), annotations="***", y_position = 27, size = 0.2) +
+  ggtitle("Environmental")
+pa
+```
+
+
+
+### Plot B, Physical health QoL-domain
+```{r Plot B Physical-health QoL-domain}
+# Library
+library(ggplot2)
+library(ggsignif)
+pb <- ggplot(integrated.database, aes(x=`Group`, y=`Physical health QoL-domain`, fill=`Group`)) +
+  geom_boxplot(alpha=0.5) + ylim(0,30) +
+  stat_summary(fun=mean, geom="point", shape=5, size=2.5, color="black") +
+  scale_fill_manual(values = c("purple","white","gray"),
+                    labels=c('SLE patients', 'RedCap volunteers', "Twins volunteers")) +
+  scale_x_discrete(labels=c('SLE patients', 'RedCap volunteers', "Twins volunteers")) +
+  theme_bw() +
+  geom_signif(comparisons=list(c("SLEpatients", "RedCapVolunter")), annotations="***", y_position = 22, size = 0.2) +
+  geom_signif(comparisons=list(c("SLEpatients", "TwinVolunter")), annotations="***", y_position = 27, size = 0.2) +
+  ggtitle("Physical-health")
+pb
+```
+### Plot C, Psychologial QoL-domain
+```{r Plot C Psychological QoL-domain}
+# Library
+library(ggplot2)
+library(ggsignif)
+pc <- ggplot(integrated.database, aes(x=`Group`, y=`Psychologial QoL-domain`, fill=`Group`)) +
+  geom_boxplot(alpha=0.5) + ylim(0,30) +
+  stat_summary(fun=mean, geom="point", shape=5, size=2.5, color="black") +
+  scale_fill_manual(values = c("purple","white","gray"),
+                    labels=c('SLE patients', 'RedCap volunteers', "Twins volunteers")) +
+  scale_x_discrete(labels=c('SLE patients', 'RedCap volunteers', "Twins volunteers")) +
+  theme_bw() +
+  geom_signif(comparisons=list(c("SLEpatients", "RedCapVolunter")), annotations="**", y_position = 22, size = 0.2) +
+  geom_signif(comparisons=list(c("SLEpatients", "TwinVolunter")), annotations="***", y_position = 27, size = 0.2) +
+  ggtitle("Psychological")
+pc
+```
+### Plot D, Social relations QoL-domain
+```{r Plot D Social-relations QoL-domain}
+# Library
+library(ggplot2)
+library(ggsignif)
+pd <- ggplot(integrated.database, aes(x=`Group`, y=`Social relations QoL-domain`, fill=`Group`)) +
+  geom_boxplot(alpha=0.5) + ylim(0,30) +
+  stat_summary(fun=mean, geom="point", shape=5, size=2.5, color="black") +
+  scale_fill_manual(values = c("purple","white","gray"),
+                    labels=c('SLE patients', 'RedCap volunteers', "Twins volunteers")) +
+  scale_x_discrete(labels=c('SLE patients', 'RedCap volunteers', "Twins volunteers")) +
+  theme_bw() +
+  geom_signif(comparisons=list(c("SLEpatients", "RedCapVolunter")), annotations="***", y_position = 22, size = 0.2) +
+  geom_signif(comparisons=list(c("SLEpatients", "TwinVolunter")), annotations="**", y_position = 27, size = 0.2) +
+  ggtitle("Social-relations")
+pd
+```
+
+## STEP 6: Bring all graphs together
+```{r Panel ploting}
+library(cowplot)
+panel.plot<-plot_grid(pa,pb,pc,pd, labels = c("A", "B", "C","D"))
+ggsave("Panel_plot_QoL_domains.png", width = 30, height = 20, units = "cm", dpi = 300)
+
+```
+
+

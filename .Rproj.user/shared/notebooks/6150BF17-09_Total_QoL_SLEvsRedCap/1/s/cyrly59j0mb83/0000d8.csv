@@ -1,0 +1,2 @@
+"0","# Exportamos resultados"
+"0","write.csv(resultados.remuestreo.total, ""Resultados_permutation_test_by_resampling/resultados.remuestreo.PermTest.totalQoL.csv"")"

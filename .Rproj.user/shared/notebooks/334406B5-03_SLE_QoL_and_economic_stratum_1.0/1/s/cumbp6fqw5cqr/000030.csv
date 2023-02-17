@@ -1,0 +1,20 @@
+"0","library(rcompanion)"
+"2","Registered S3 method overwritten by 'data.table':
+  method           from
+  print.data.table     
+"
+"0","TQoL <- tb.pacientes$`Total quality of life`"
+"0","SocioeconomicLevel <- as.character(tb.pacientes$`Socioeconomic level`)"
+"0","str(SocioeconomicLevel)"
+"1"," chr [1:966] "
+"1",""
+"1","""D"" ""C-"" ""D+"" ""D"" ""D"" ""D+"" ""D"" ""D+"" ""C-"" ""D+"" ""D"" ""D+"" ""D+"" ""D+"""
+"1",""
+"1"," ..."
+"1",""
+"1","
+"
+"0","resultados.pairwise <-pairwisePermutationTest( x=tb.pacientes$`Total quality of life`, "
+"0","                         g=SocioeconomicLevel,"
+"0","                         method = ""fdr"")"
+"0","resultados.pairwise"

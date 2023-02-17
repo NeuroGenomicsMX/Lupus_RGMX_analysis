@@ -1,0 +1,5 @@
+"0","img1 <- readPNG(""Perception-variables_interaction_3D.png"")
+"
+"2","Error in readPNG(""Perception-variables_interaction_3D.png"") : 
+  no se pudo encontrar la función ""readPNG""
+"
