@@ -1,0 +1,682 @@
+---
+title: "Lupus RGMX descriptive analysis"
+author: "Hernández-Ledesma Ana Laura"
+date: "2023-02-18"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## STEP 1: Loading required packages and reading database
+```{r Reading database}
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(mxmaps)
+library(UpSetR)
+data <- read.csv(file = "SLE.csv")
+```
+
+## STEP 2: Loading colorblind palette
+```{r Colorblind palette definition }
+colorblind_palette <- c("#88CCEE", "#CC6677", "#DDCC77", "#117733", "#332288", "#AA4499", 
+                        "#44AA99", "#999933", "#882255", "#661100", "#6699CC", "#888888")
+scales::show_col(colorblind_palette)
+```
+
+## STEP 3: Selecting and filtering data of interest
+```{r Selecting and filtering data of interest }
+data_curated <- data %>%
+  select(record_id, privacy_acceptance___1, sex___1, sex___2, calculated_age, 
+         lupus, sledai_points___1, sledai_points___2, sledai_points___3, sledai_points___4, sledai_points___5, sledai_points___6,
+         sledai_points___7, sledai_points___8, sledai_points___9, sledai_points___10, sledai_points___11, sledai_points___12, sledai_points___13,
+         sledai_points___14, sledai_points___15, sledai_points___16, sledai_points___17, sledai_points___18, sledai_points___19, 
+         sledai_points___20, sledai_points___21, sledai_points___22, sledai_points___23, sledai_points___24, 
+         aan, nephritis, prednisolona, immunesupresive, egfr,pregnancy, comorbidities, 
+         health_provider, dx_time, time_symptoms, treatment___0, treatment___1, treatment___2, treatment___3, treatment___4,treatment___5,
+         treatment___6, treatment___7, treatment___8, family_sle, home, ocupation, school,
+         socioeconomic_status, cal_saludfisica, calc_psicologico, calc_relacionesociales, calc_ambiente, bref1, bref2) %>%
+  filter(privacy_acceptance___1 == 1 &  (calculated_age >= 18 & calculated_age < 100)) %>%
+  filter(sex___1 != sex___2 & sex___2 != sex___1) %>%
+  filter(prednisolona != 7 | treatment___0 == 1 | treatment___1 == 1 | treatment___2 ==1 | treatment___3 ==1 | treatment___4 ==1 | treatment___5 ==1 | treatment___6 ==1 | treatment___7 ==1 | treatment___8 ==1 , preserve = TRUE) %>%
+  mutate(lupus = replace(lupus, lupus == 2, "Ctrl")) %>%
+  mutate(lupus = replace(lupus, lupus == 1, "Lupus")) %>%
+  mutate(sex___1 = replace(sex___1, sex___1 == 1, "Women"))%>%
+  mutate(sex___1 = replace(sex___1, sex___1 == 0, "Men")) %>%
+  rename(sex=sex___1, Seizure=sledai_points___1, Psychosis=sledai_points___2, 'Organic brain syndome'=sledai_points___3, 'Visual disturbance'=sledai_points___4,
+         'Cranial nerve disorder'=sledai_points___5, 'Lupus headache'=sledai_points___6, 'Cerebrovascular accident'=sledai_points___7,
+         Vasculitis=sledai_points___8, Arthritis=sledai_points___9, Myositis=sledai_points___10, 'Urinary Casts'=sledai_points___11,
+         Hematuria=sledai_points___12, Proteinuria=sledai_points___13, Pyuria=sledai_points___14, Rash=sledai_points___15,
+         Alopecia=sledai_points___16, 'Mucosal ulcers'=sledai_points___17, 'Pleurisy'=sledai_points___18, Pericarditis=sledai_points___19,
+         'Low complement'=sledai_points___20, 'Increased DNA binding'=sledai_points___21, Fever=sledai_points___22, Thrombocytopenia=sledai_points___23,Leukopenia=sledai_points___24,
+         Corticosteoids=prednisolona, Antimalarials=treatment___0, Glucocorticoids=treatment___1, Mycophenolate=treatment___2, Azathioprine=treatment___3, Metothrexate=treatment___4,
+         Rituximab=treatment___5, Cyclosporine=treatment___6, Cyclophosphamide=treatment___7, Others=treatment___8) %>%
+  select(-record_id, -privacy_acceptance___1, -sex___2)
+```
+
+## STEP 4: Data selection for sociodemographic analysis
+```{r Data selection }
+sociodemographic_df <-  data_curated %>%
+  select(sex, calculated_age, lupus,aan, nephritis,  immunesupresive, egfr,pregnancy, comorbidities, Corticosteoids,
+         health_provider, dx_time, time_symptoms, Antimalarials, Glucocorticoids, Mycophenolate, Azathioprine, Metothrexate,
+         Rituximab, Cyclosporine, Cyclophosphamide, Others, family_sle, ocupation, school) %>%  #To get all sociodemographic data
+  filter(lupus == "Lupus") %>% #To only visualize people with SLE data
+  mutate(health_provider = replace(health_provider, health_provider == 1, "IMSS")) %>%
+  mutate(health_provider = replace(health_provider, health_provider == 2, "ISSSTE")) %>%
+  mutate(health_provider = replace(health_provider, health_provider == 3, "PEMEX")) %>%
+  mutate(health_provider = replace(health_provider, health_provider == 4, "SEDENA")) %>%
+  mutate(health_provider = replace(health_provider, health_provider == 5, "SEMAR")) %>%
+  mutate(health_provider = replace(health_provider, health_provider == 6, "SSa")) %>%
+  mutate(health_provider = replace(health_provider, health_provider == 7, "SESA")) %>%
+  mutate(health_provider = replace(health_provider, health_provider == 8, "IMSS-Bienestar")) %>%
+  mutate(health_provider = replace(health_provider, health_provider == 9, "Private")) %>%
+  mutate(pregnancy = replace(pregnancy, pregnancy == 0, "Pregnant")) %>%
+  mutate(pregnancy = replace(pregnancy, pregnancy == 1, "Not pregnant")) %>%
+  mutate(ocupation = replace(ocupation, ocupation == 1, "Student")) %>%
+  mutate(ocupation = replace(ocupation, ocupation == 2, "Employee")) %>%
+  mutate(ocupation = replace(ocupation, ocupation == 3, "Unemployed")) %>%
+  mutate(ocupation = replace(ocupation, ocupation == 4, "Retired")) %>%
+  mutate(school = replace(school, school == 1, "None")) %>%
+  mutate(school = replace(school, school == 2, "Elementary school/9 years")) %>%
+  mutate(school = replace(school, school == 3, "Junior high school/12 years")) %>%
+  mutate(school = replace(school, school == 4, "Senior high school.Technician/15 years")) %>%
+  mutate(school = replace(school, school == 5, "College")) %>%
+  mutate(school = replace(school, school == 6, "Graduate school")) %>%
+  mutate(nephritis = replace(nephritis, nephritis == 1, "Yes")) %>%
+  mutate(nephritis = replace(nephritis, nephritis == 2, "No")) %>%
+  mutate(aan = replace(aan, aan == 0, "Yes")) %>%
+  mutate(aan = replace(aan, aan == 1, "No")) %>%
+  mutate(comorbidities = replace(comorbidities, comorbidities == 1, "Diabetes mellitus")) %>%
+  mutate(comorbidities = replace(comorbidities, comorbidities == 2, "Hypertension")) %>%
+  mutate(comorbidities = replace(comorbidities, comorbidities == 3, "Cancer")) %>%
+  mutate(comorbidities = replace(comorbidities, comorbidities == 4, "Cardiovascular disease")) %>%
+  mutate(comorbidities = replace(comorbidities, comorbidities == 5, "Osteoporosis")) %>%
+  mutate(comorbidities = replace(comorbidities, comorbidities == 8, "Thyroid diseases")) %>%
+  mutate(comorbidities = replace(comorbidities, comorbidities == 9, "Other")) %>%
+  mutate(comorbidities = replace(comorbidities, comorbidities == 11, "None"))
+```
+
+## STEP 5: Data selection for sociodemographic analysis
+### *NA represents registries that were not filled for this questions*
+```{r Percentages obtention }
+### Percentage of participants by sex
+sociodemographic_df %>%
+  count(.$sex, "Women") %>% 
+  mutate(percent = n/ sum(n) * 100)
+
+### Mean age and mean age at diagnosis
+## Age
+mean_age <- mean(sociodemographic_df$calculated_age)
+sd_age <- sd(sociodemographic_df$calculated_age)
+mean_age
+sd_age
+
+## Duration of the disease
+mean_dxtime <- mean(as.numeric(sociodemographic_df$dx_time))
+sd_dxtime <- sd(sociodemographic_df$dx_time)
+mean_dxtime
+sd_dxtime
+
+## Age at diagnosis
+sociodemographic_df['age_at_dx'] <- sociodemographic_df$calculated_age - sociodemographic_df$dx_time # To #calculate age at diagnosis
+mean_dxage <- mean(as.numeric(sociodemographic_df$age_at_dx))
+mean_dxage
+sd_dxage <- sd(sociodemographic_df$age_at_dx)
+sd_dxage
+
+### Percentage of participants by occupation
+sociodemographic_df %>%
+  count(.$ocupation, "0") %>% 
+  mutate(percent = n/ sum(n) * 100)
+
+### Percentage of participants by last academic degree
+sociodemographic_df %>%
+  count(.$school, "0") %>% 
+  mutate(percent = n/ sum(n) * 100)
+
+## Time since diagnosis
+mean_dxtime <- mean(sociodemographic_df$dx_time)
+sd_dxtime <- sd(sociodemographic_df$dx_time)
+mean_dxtime
+sd_dxtime
+
+### Percentage of pregnant participants
+sociodemographic_df %>%
+  count(.$pregnancy , "Pregnant") %>% # 0 = pregnant
+  mutate(percent = n/ sum(n) * 100)
+
+### Percentage of participants with a familiar with SLE
+sociodemographic_df %>%
+  count(.$family_sle , 0) %>% # 0 = si
+  mutate(percent = n/ sum(n) * 100)
+
+### Percentage of participants with nephritis
+sociodemographic_df %>%
+  count(.$nephritis, 0) %>% # 0 = si
+  mutate(percent = n/ sum(n) * 100)
+
+### Percentage of participants with comorbidities
+sociodemographic_df %>%
+  count(.$comorbidities, 1) %>% 
+  mutate(percent = n/ sum(n) * 100)
+
+### Percentage of health providers 
+sociodemographic_df %>%
+  count(.$health_provider , 0) %>% 
+  mutate(percent = n/ sum(n) * 100)
+ 
+### Percentage of participants with comorbidities
+data_curated %>%
+  count(.$Corticosteoids, 1) %>% 
+  mutate(percent = n/ sum(n) * 100)
+
+##Percentage of participants by treatment
+##Antimalarials
+sociodemographic_df %>%
+  count(.$Antimalarials, 1) %>%  # 1=They consume the treatment
+  mutate(percent = n/ sum(n) * 100)
+
+##Glucocorticoids
+sociodemographic_df %>%
+  count(.$Glucocorticoids, 1) %>% # 1=They consume the treatment
+  mutate(percent = n/ sum(n) * 100)
+
+##Corticoids
+sociodemographic_df %>%
+  count(.$Corticosteoids, 0) %>% # 1=They consume the treatment
+  mutate(percent = n/ sum(n) * 100)
+
+##Mycophenolate
+sociodemographic_df %>%
+  count(.$Mycophenolate, 1) %>% # 1=They consume the treatment
+  mutate(percent = n/ sum(n) * 100)
+
+##Azathioprine
+sociodemographic_df %>%
+  count(.$Azathioprine, 1) %>% # 1=They consume the treatment
+  mutate(percent = n/ sum(n) * 100)
+
+##Metothrexate
+sociodemographic_df %>%
+  count(.$Metothrexate, 1) %>% # 1=They consume the treatment
+  mutate(percent = n/ sum(n) * 100)
+
+#Rituximab
+sociodemographic_df %>%
+  count(.$Rituximab, 1) %>% # 1=They consume the treatment
+  mutate(percent = n/ sum(n) * 100)
+
+#Cyclosporine
+sociodemographic_df %>%
+  count(.$Cyclosporine, 1) %>% # 1=They consume the treatment
+  mutate(percent = n/ sum(n) * 100)
+
+#Cyclophosphamide
+sociodemographic_df %>%
+  count(.$Cyclophosphamide, 1) %>% # 1=They consume the treatment
+  mutate(percent = n/ sum(n) * 100)
+
+#Others
+sociodemographic_df %>%
+  count(.$Others, 1) %>% # 1=They consume the treatment
+  mutate(percent = n/ sum(n) * 100)
+```
+
+## STEP 6: Age and time since diagnosis distribution
+### Age distribution
+```{r Age distribution }
+cal_age <- data_curated %>%  
+  filter(lupus=="Lupus") %>%
+  count(calculated_age)
+
+mean_age <- mean(data_curated$calculated_age)
+sd(data_curated$calculated_age)
+
+### Distribution of patients according to age
+ggplot(cal_age, (mapping = aes(x = factor(calculated_age), y = n))) + 
+  geom_col(width = 0.5, color="#6bb099", fill="#6bb099") + 
+  geom_text(aes(label = n), vjust = -0.5, size=3) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.3)) + #orientation text in bars
+  xlab("Age") + 
+  ylab("# of patients") +  
+  ggtitle("Age of patients") + 
+  scale_fill_manual(values = colorblind_palette) +
+  theme(plot.title = element_text(hjust = 0.5))  
+
+### Distribution of patients according to groups by age
+## Groups by age
+cal_age <- data_curated %>%  
+  filter(lupus=="Lupus") %>%
+  count(calculated_age, sex)
+
+cal_age <-cal_age %>%
+  mutate(group = (if_else(calculated_age <= 20, "18-20 yrs", "21-30 yrs"))) %>%
+  mutate(group = replace(group, calculated_age>=31 ,"31-40 yrs")) %>%
+  mutate(group = replace(group, calculated_age>=41,"41-50 yrs")) %>%
+  mutate(group = replace(group, calculated_age>50,"51-99 yrs"))
+
+#Plot based on number of patients (women/men)
+ggplot(cal_age, aes(x = group, y = n, fill = sex)) + 
+  geom_col(position = position_dodge(0.5), width = 0.5) + 
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.3, size=11)) +
+  xlab("Age group") + 
+  ylab("Number of patients")  + 
+  ggtitle("Patients by age group") + 
+  theme(plot.title = element_text(hjust = 0.5)) +  
+  scale_fill_manual(values = colorblind_palette) +
+  labs(fill = "")
+
+group_sex <- cal_age %>%
+  count(group, sex, wt = n) 
+
+#Total patients by group 
+valores_totales <- data.frame(group=
+                                c("18-20 yrs", "21-30 yrs", "31-40 yrs", "41-50 yrs", "51-99 yrs"), 
+                              sex___1=
+                                c("Total", "Total", "Total", "Total", "Total"), 
+                              n=
+                                c(group_sex$n[1], sum(group_sex$n[2:3]), 
+                                  sum(group_sex$n[4:5]),  sum(group_sex$n[6:7]), 
+                                  sum(group_sex$n[8:9])))
+
+# Collapsing 2 df in 2
+valores_totales <- valores_totales %>%
+  rename(sex=sex___1)
+group_sex <- rbind(group_sex, valores_totales)
+
+#Plot based on percentage of patients
+group_sex <-group_sex %>%
+  mutate(percentage = round(((n*100)/colSums(valores_totales[3])), 2))
+group_sex$sex <- factor(group_sex$sex, levels=c("Women", "Men", "Total"))
+
+ggplot(group_sex, (mapping = aes(x = factor(group), y = percentage, fill=factor(sex)))) + 
+  geom_col(position = position_dodge(0.567), width = 0.5) +
+  scale_fill_manual(values = colorblind_palette) +
+  labs(y = "Percentage (%)", 
+       fill = "",
+       x = "Groups by age",
+       title = "Patients distribution according to age")  +
+  theme_linedraw()+
+  theme(plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5, size = 8),
+        axis.title = element_text(size = 12, face = "bold"),
+        axis.title.x = element_text(hjust = 0.5),
+        axis.text.y = element_text(size =10),
+        legend.position = "bottom")
+```
+### Time since diagnosis distribution
+```{r Time since diagnosis distribution }
+cal_dx_time <- data_curated %>%  
+  count(dx_time, sex)
+cal_dx_time <- na.omit(cal_dx_time)
+
+ggplot(cal_dx_time, (mapping = aes(x = factor(dx_time), y = n))) + 
+  geom_col(width = 0.5, color="#6bb099", fill="#6bb099")+ 
+  scale_fill_manual(values = colorblind_palette) +
+  geom_text(aes(label = n), vjust = -0.5, size=3) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.3)) +
+  xlab("Time since dx (yrs)") + 
+  ylab("Number of patients") +   
+  ggtitle("Time since diagnosis") + 
+  theme(plot.title = element_text(hjust = 0.5), 
+        panel.grid.major = element_blank(),
+        panel.background= element_rect(fill = "transparent", colour = "black"), # To let the axis of the graph 
+        plot.background = element_rect(fill = "transparent", colour = NA)) # To remove the background
+
+cal_dx_time  <- cal_dx_time  %>%
+  mutate(group = (if_else(dx_time <= 1, "1 year or less", "1-5 yrs"))) %>%
+  mutate(group = replace(group, dx_time>=5 ,"6-10 yrs")) %>%
+  mutate(group = replace(group, dx_time>=11,"11-25 yrs")) %>%
+  mutate(group = replace(group, dx_time>26,"26-50 yrs")) %>%
+  mutate(group = replace(group, dx_time>51,"51 yrs or more")) 
+
+ggplot(cal_dx_time, aes(x = factor(group), y = n, fill = factor(sex))) + 
+  geom_col(position = position_dodge(0.5), width = 0.5) + 
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.3, size=11)) +
+  xlab("Time since diagnosis yrs") + 
+  ylab("Number of patients")  + 
+  ggtitle("Patients by group of time of diagnosis") + 
+  theme(plot.title = element_text(hjust = 0.5)) + 
+  scale_fill_manual(values = colorblind_palette) +
+  labs(fill = "")
+
+group_dxtime_sex <- cal_dx_time %>%
+  count(group, sex, wt = n) 
+
+total_timedx <- data.frame(group=
+                             c("1 year or less", "1-5 yrs", "6-10 yrs", "11-25 yrs", "26-50 yrs", "51 yrs or more"),
+                           sex=
+                             c("Total", "Total", "Total", "Total", "Total", "Total"),
+                           n=
+                             c(sum(group_dxtime_sex$n[1:2]), sum(group_dxtime_sex$n[3:4]), 
+                               sum(group_dxtime_sex$n[9:10]),  sum(group_dxtime_sex$n[5:6]), 
+                               sum(group_dxtime_sex$n[7:8]), sum(group_dxtime_sex$n[9])))
+total_timedx <- na.omit(total_timedx)
+group_dxtime_sex <- rbind(group_dxtime_sex, total_timedx)
+
+group_dxtime_sex <-group_dxtime_sex %>%
+  mutate(percentage = round(((n*100)/colSums(total_timedx[3])), 2))
+group_dxtime_sex$sex <- factor(group_dxtime_sex$sex, levels=c("Women", "Men", "Total"))
+
+ggplot(group_dxtime_sex, (mapping = aes(x = fct_relevel(group, c("1 year or less", "1-5 yrs", "6-10 yrs", "11-25 yrs", "26-50 yrs")), 
+                                        y = percentage, fill=factor(sex)))) + 
+  geom_col(position = position_dodge(0.567), width = 0.5) +
+  scale_fill_manual(values = colorblind_palette) +
+  labs(y = "Percentage (%)", 
+       fill = "",
+       x = "Groups according to disease duration",
+       title = "Patients grouped by disease duration")  +
+  theme_linedraw()+
+  theme(plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+      plot.subtitle = element_text(hjust = 0.5, size = 8),
+      axis.title = element_text(size = 12, face = "bold"),
+      axis.title.x = element_text(hjust = 0.5),
+      axis.text.y = element_text(size =10),
+      legend.position = "bottom")
+```
+### Age at diagnosis distribution
+```{r Age at diagnosis distribution }
+agedx <- sociodemographic_df %>%  
+  count(age_at_dx, sex)
+
+agedx <-agedx %>%
+  mutate(group = (if_else(age_at_dx <= 18, "< 18 yrs", "18-20 yrs"))) %>%
+  mutate(group = replace(group, age_at_dx>=21 ,"21-30 yrs")) %>%
+  mutate(group = replace(group, age_at_dx>=31 ,"31-40 yrs")) %>%
+  mutate(group = replace(group, age_at_dx>=41,"41-50 yrs")) %>%
+  mutate(group = replace(group, age_at_dx>50,"51-99 yrs"))
+
+#Plot based on number of patients (women/men)
+ggplot(agedx, aes(x = group, y = n, fill = sex)) + 
+  geom_col(position = position_dodge(0.5), width = 0.5) + 
+  theme(axis.text.x = element_text(angle = 0, hjust = 0.5, vjust = 0.3, size=11)) +
+  xlab("Age group") + 
+  ylab("Number of patients")  + 
+  ggtitle("Patients by age at diagnosis") + 
+  theme(plot.title = element_text(hjust = 0.5)) +  
+  scale_fill_manual(values = colorblind_palette) +
+  labs(fill = "")
+
+group_dxage_sex <- agedx %>%
+  count(group, sex, wt = n) 
+
+#Total patients by group 
+valores_totalesagedx <- data.frame(group=
+                                c("< 18 yrs", "18-20 yrs", "21-30 yrs", "31-40 yrs", "41-50 yrs", "51-99 yrs"), 
+                              sex=
+                                c("Total", "Total", "Total", "Total", "Total", "Total"), 
+                              n=
+                                c(group_dxage_sex$n[1:2], sum(group_dxage_sex$n[3:4]), 
+                                  sum(group_dxage_sex$n[5:6]),  sum(group_dxage_sex$n[7:8]), 
+                                  sum(group_dxage_sex$n[9:10])))
+
+# Collapsing 2 df in 2
+group_dxage_sex <- rbind(group_dxage_sex, valores_totalesagedx)
+
+#Plot based on percentage of patients
+group_dxage_sex <-group_dxage_sex %>%
+  mutate(percentage = round(((n*100)/colSums(valores_totalesagedx[3])), 2))
+group_dxage_sex$sex <- factor(group_dxage_sex$sex, levels=c("Women", "Men", "Total"))
+
+ggplot(group_dxage_sex, (mapping = aes(x = factor(group), y = percentage, fill=factor(sex)))) + 
+  geom_col(position = position_dodge(0.567), width = 0.5) +
+  scale_fill_manual(values = colorblind_palette) +
+  labs(y = "Percentage (%)", 
+       fill = "",
+       x = "Groups by age at diagnosis",
+       title = "Patients distribution according to age at diagnosis")  +
+  theme_linedraw()+
+  theme(plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5, size = 8),
+        axis.title = element_text(size = 12, face = "bold"),
+        axis.title.x = element_text(hjust = 0.5),
+        axis.text.y = element_text(size =10),
+        legend.position = "bottom")
+```
+
+## STEP 7: Demographic distribution
+```{r Demographic distribution }
+#### If mxmaps is not installed applied the next code
+#if (!require(devtools)) {
+ # install.packages("devtools")
+#}
+#devtools::install_github('diegovalle/mxmaps')
+#install.packages('mxmaps')
+
+#### Data preparation 
+States <- data_curated %>% 
+  mutate(home = replace(home, home == 1, "Aguascalientes")) %>%
+  mutate(home = replace(home, home == 2, "Baja California")) %>%
+  mutate(home = replace(home, home == 3, "Baja California Sur")) %>%
+  mutate(home = replace(home, home == 4, "Campeche")) %>%
+  mutate(home = replace(home, home == 5, "Coahuila")) %>%
+  mutate(home = replace(home, home == 6, "Colima")) %>%
+  mutate(home = replace(home, home == 7, "Chiapas")) %>%
+  mutate(home = replace(home, home == 8, "Chihuahua")) %>%
+  mutate(home = replace(home, home == 9, "Durango")) %>%
+  mutate(home = replace(home, home == 10, "Ciudad de México")) %>%
+  mutate(home = replace(home, home == 11, "Guanajuato")) %>%
+  mutate(home = replace(home, home == 12, "Guerrero")) %>%
+  mutate(home = replace(home, home == 13, "Hidalgo")) %>%
+  mutate(home = replace(home, home == 14, "Jalisco")) %>%
+  mutate(home = replace(home, home == 15, "México")) %>%
+  mutate(home = replace(home, home == 16, "Michoacán")) %>%
+  mutate(home = replace(home, home == 17, "Morelos")) %>%
+  mutate(home = replace(home, home == 18, "Nayarit")) %>%
+  mutate(home = replace(home, home == 19, "Nuevo León")) %>%
+  mutate(home = replace(home, home == 20, "Oaxaca")) %>%
+  mutate(home = replace(home, home == 21, "Puebla")) %>%
+  mutate(home = replace(home, home == 22, "Querétaro")) %>%
+  mutate(home = replace(home, home == 23, "Quintana Roo")) %>%
+  mutate(home = replace(home, home == 24, "San Luis Potosí")) %>%
+  mutate(home = replace(home, home == 25, "Sinaloa")) %>%
+  mutate(home = replace(home, home == 26, "Sonora")) %>%
+  mutate(home = replace(home, home == 27, "Tabasco")) %>%
+  mutate(home = replace(home, home == 28, "Tamaulipas")) %>%
+  mutate(home = replace(home, home == 29, "Tlaxcala")) %>%
+  mutate(home = replace(home, home == 30, "Veracruz")) %>%
+  mutate(home = replace(home, home == 31, "Yucatán")) %>%
+  mutate(home = replace(home, home == 32, "Zacatecas")) %>%
+  filter(lupus == "Lupus") %>%
+  count(home) 
+
+regions <- data.frame(
+  "region" = 1:32,
+  "state_name" = c("Aguascalientes", "Baja California", "Baja California Sur", "Campeche", "Coahuila", "Colima", "Chiapas", "Chihuahua",
+  "Ciudad de México", "Durango", "Guanajuato", "Guerrero","Hidalgo", "Jalisco", "México", "Michoacán", "Morelos", "Nayarit", "Nuevo León",
+  "Oaxaca", "Puebla", "Querétaro", "Quintana Roo", "San Luis Potosí", "Sinaloa", "Sonora", "Tabasco", "Tamaulipas", "Tlaxcala", "Veracruz",
+  "Yucatán", "Zacatecas")) # Order of states according to mxmaps dispositions
+
+home <- merge(States, regions, by.x = "home", by.y = "state_name")
+home <- home %>%
+  rename(registers=n, state_name=home)
+
+### Mapping registries
+breaks <- c(0, 11, 26, 51, 76, 101, 150, Inf) 
+colors <- c("#fde0dd","#fcc5c0","#fa9fb5","#f768a1","#dd3497",
+"#ae017e","#7a0177")
+home$breaks <- cut(home$registers, breaks)
+home$value <- home$breaks 
+
+##Graph map
+mxstate_choropleth(home,
+                   title = "Geographic distribution of people \n with SLE in México", legend = "Number of patients")+ 
+  scale_fill_manual(breaks = levels(home$breaks),
+                    values = colors,
+                    labels=c("1-10", "11-25", "26-50", "51-75", "76-100", "101-150", "151-175"))+
+  labs(fill="Number of \n patients")+
+  theme(plot.title = element_text(hjust = 0.5, size = 18, face = "bold"),
+        plot.subtitle = element_text(hjust = 0.5, size = 8),
+        legend.position = "right",
+        legend.title = element_text(size=14),
+        legend.text = element_text(size = 12, hjust = 0.5),
+        legend.key.size = unit(0.5, 'cm'),
+        legend.title.align = 0.5)
+```
+
+## STEP 8: Socioeconomic status
+```{r Calculating socioeconomic status}
+#### Selection of the data
+s_status <- data_curated%>%
+  filter(lupus=="Lupus")%>%
+  count(socioeconomic_status)
+
+#### Assignation of socioeconomic level
+s_status <-s_status %>%
+  mutate(group = (if_else(socioeconomic_status <= 47, "E = 261 USD", "D = 430 USD"))) %>%
+  mutate(group = replace(group, socioeconomic_status>=94 & socioeconomic_status<=115,"D+ = 595 USD")) %>%
+  mutate(group = replace(group, socioeconomic_status>=116 & socioeconomic_status<=140,"C- = 754 USD")) %>%
+  mutate(group = replace(group, socioeconomic_status>=141 & socioeconomic_status<=167,"C = 962 USD")) %>%
+  mutate(group = replace(group, socioeconomic_status>=168 & socioeconomic_status<=201,"C+")) %>%
+  mutate(group = replace(group, socioeconomic_status>=202,"A/B"))
+
+#### Summarizing patients by socioeconomic level
+se_status <- data.frame(group=
+                               c("E = 261 USD", "D = 430 USD", "D+ = 595 USD", "C- = 754 USD", "C = 962 USD"),
+                           n=
+                             c(sum(s_status$n[1:20]), sum(s_status$n[21:52]), 
+                               sum(s_status$n[53:69]),  sum(s_status$n[70:77]), 
+                               sum(s_status$n[78:79])))
+se_status[is.na(se_status)] <-0
+  
+#### Obtaining percentages
+se_status <- se_status %>%
+  mutate(percentage = round(((n*100)/colSums(se_status[2])), 1)) %>%
+  rename(Category = group)
+
+#### Making the plot
+se_status$Category = factor(se_status$Category, levels = c("C = 962 USD", "C- = 754 USD", "D+ = 595 USD",
+                                                           "D = 430 USD", "E = 261 USD" ))
+
+ggplot(se_status,aes(x =Category, y = percentage, fill= Category)) +
+  geom_col(position = position_dodge(0.567), width = 0.5)+
+  scale_fill_manual(values = c("E = 261 USD"= "#fdd49e", 
+                               "D = 430 USD"= "#fdbb84",
+                               "D+ = 595 USD" ="#fc8d59",
+                               "C- = 754 USD" ="#e34a33",
+                               "C = 962 USD" = "#b30000")) +
+  labs(y = "Percentage (%)", 
+       fill = "Category",
+       x = "Socioeconomic levels",
+       title = "Socioeconomic level distribution")  +
+  theme_linedraw()+
+  theme(plot.title = element_text(hjust = 0.5, size = 16, face = "bold"),
+        legend.position = "right",
+        legend.title = element_text(size=12),
+        legend.text = element_text(size = 9),
+        axis.title = element_text(size = 10, face = "bold"),
+        legend.key.size = unit(1, 'cm'),
+        legend.title.align = 0.5)
+```
+
+## STEP 8: Clinical data
+### Comorbidities
+```{r Analyzing comorbidities}
+## Identifying the variables
+comorbidities  <- data_curated %>%
+  filter(lupus=="Lupus")%>%
+  mutate(comorbidities = replace(comorbidities, comorbidities == 1, "Diabetes mellitus")) %>%
+  mutate(comorbidities = replace(comorbidities, comorbidities == 2, "Hypertension")) %>%
+  mutate(comorbidities = replace(comorbidities, comorbidities == 3, "Cancer")) %>%
+  mutate(comorbidities = replace(comorbidities, comorbidities == 4, "Cardiovascular disease")) %>%
+  mutate(comorbidities = replace(comorbidities, comorbidities == 5, "Osteoporosis")) %>%
+  mutate(comorbidities = replace(comorbidities, comorbidities == 8, "Thyroid diseases")) %>%
+  mutate(comorbidities = replace(comorbidities, comorbidities == 9, "Other")) %>%
+  mutate(comorbidities = replace(comorbidities, comorbidities == 11, "None")) # %>%
+
+lupus_total <- comorbidities %>%
+  count(lupus)
+lupus_total
+comorbidities <- comorbidities %>%
+  count(comorbidities, lupus)
+
+## Eliminate options associated with other autoimmune diseases
+comorbidities <- comorbidities[!(comorbidities$comorbidities == '6'),]
+comorbidities <- comorbidities[!(comorbidities$comorbidities == '0'),]
+comorbidities <- comorbidities[!(comorbidities$comorbidities == '7'),]
+
+## Obtaining percentages
+comorbidities <- comorbidities %>%
+  mutate(percentage = round(((n*100)/(lupus_total$n)))) %>%
+  arrange(desc(percentage))
+
+## Making the plot
+ggplot(comorbidities, aes(x=reorder(comorbidities, +percentage), y = percentage, fill=""))+
+  geom_bar(stat = "identity")+
+  coord_flip()+
+  scale_fill_manual(values = "#2b8cbe") +
+  labs(y = "Percentage (%)", 
+       fill = "",
+       x = "Comorbidity",
+       title = "Comorbidities \n in SLE patients")  +
+  theme_linedraw()+
+  theme(plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+        legend.position = "none",
+        axis.title = element_text(size = 12, face = "bold"),
+        axis.text.y = element_text(size =12),
+        axis.text.x = element_text(size=12))
+```
+
+### Clinical manifestations
+```{r Analyzing clinical manifestations}
+## Selecting data 
+clinical_df <- data_curated %>%
+  filter(lupus=="Lupus") %>%
+  select( "Seizure", "Psychosis", "Organic brain syndome", "Visual disturbance", "Cranial nerve disorder","Lupus headache",
+          "Cerebrovascular accident","Vasculitis","Arthritis", "Myositis",  "Urinary Casts",  "Hematuria", "Proteinuria",
+          "Pyuria", "Rash", "Alopecia", "Mucosal ulcers", "Pleurisy", "Pericarditis","Low complement","Increased DNA binding",
+          "Fever","Thrombocytopenia","Leukopenia") 
+
+## Principal manifestations
+## Data preparation
+sumcolumn_sledai <- colSums(clinical_df)
+sumcolumn_sledai
+
+clinical_prop <- data.frame(
+  "Manifestation" = c("Seizure", "Psychosis", "Organic brain syndrome", "Visual disturbance", "Cranial nerve disorder","Lupus headache",
+                      "Cerebrovascular accident","Vasculitis","Arthritis", "Myositis",  "Urinary Casts",  "Hematuria", "Proteinuria",
+                      "Pyuria", "Rash", "Alopecia", "Mucosal ulcers", "Pleurisy", "Pericarditis","Low complement","Increased DNA binding",
+                      "Fever","Thrombocytopenia","Leukopenia"),
+  "n" = sumcolumn_sledai[c(1:24)]
+)
+clinical_prop <- clinical_prop %>%
+  mutate(percentage = round(((n*100)/lupus_total$n))) 
+
+## Making the plot
+ggplot(clinical_prop, aes(x=reorder(Manifestation, +percentage), y = percentage, fill=""))+
+  geom_bar(stat = "identity")+
+  coord_flip()+
+  scale_fill_manual(values = "#800026") +
+  labs(y = "Percentage (%)", 
+       fill = "",
+       x = "Clinical manifestation",
+       title = "Principal clinical manifestations \n in SLE patients")+
+  theme_linedraw()+
+  theme(plot.title = element_text(hjust = 0.9, size = 14, face = "bold"),
+        legend.position = "none",
+        axis.title = element_text(size = 12, face = "bold"),
+        axis.title.x = element_text(hjust = 0.5),
+        axis.text.y = element_text(size =10),
+        axis.text.x = element_text(size =10))
+
+## Visualizing intersections frequency between different severe manifestations.
+## Selecting only severe manifestations (according to SLEDAI criteria)
+severe_manif <- clinical_df %>%
+  select(-Rash, -Alopecia, -'Mucosal ulcers', -Pleurisy, -Pericarditis,
+  -'Low complement', -'Increased DNA binding', -Fever, -Thrombocytopenia, -Leukopenia)
+
+severe_manif <- as.data.frame(sapply(severe_manif , as.numeric))
+str(severe_manif)
+
+## Making the plot
+upset(severe_manif, nsets = 14, text.scale = c(1.5, 1.25, 1.25, 1, 1.5, 1.5),
+      sets.bar.color = c("#882255", "#888888","#882255", "#888888", "#888888", "#888888",
+                         "#882255", "#882255", "#888888", "#888888", "#882255","#888888",
+                         "#888888", "#882255"), 
+      mb.ratio = c(0.50, 0.5),
+      mainbar.y.label = "Frequency (n)", sets.x.label = "Total frequency (n)")
+```
