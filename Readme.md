@@ -1,6 +1,6 @@
 Readme
 
-This projec run analysis for the preprint intitled: "Lupus RGMX: Demographic and clinical characteristics of Systemic Lupus Erythematosus in a Mexican Cohort."
+This projec run analysis for the preprint intitled: "Lupus RGMX: social and clinical characteristics and their contribution to Quality of life in a Mexican cohort with SLE.."
 
 # Data sets
 
